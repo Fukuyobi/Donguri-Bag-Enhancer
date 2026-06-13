@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Donguri Bag Enhancer
 // @namespace    https://donguri.5ch.io/
-// @version      14.1.6.0
+// @version      14.3.0.0
 // @description  5ちゃんねる「どんぐりシステム」の「アイテムバッグ」ページ機能改良スクリプト。
 // @author       Author: 福呼び草 / Assistant: ChatGPT（OpenAI）
 // @contributor  Suggested by: 'ID:YTtKPa4Z0'
@@ -33,7 +33,7 @@
   // ============================================================
   // スクリプト自身のバージョン（About 表示用）
   // ============================================================
-  const DBE_VERSION    = '14.1.6.0';
+  const DBE_VERSION    = '14.3.0.0';
 
   // ============================================================
   // 現在のどんぐりドメイン
@@ -455,9 +455,24 @@
   //     を自動生成します
   // ============================================================
 
-    function makeKey(s){
+  // ============================================================
+  // 武器/防具 世代マーカー
+  // - 公式側で旧世代装備のアイテム名末尾に「*」が付与される
+  // - 世代は違っても同一アイテムとして扱う場面（名称ソート/レジストリ照合/同名抽出）では
+  //   末尾「*」を除去した基準名を使う
+  // - フィルターでは「*」あり=LEGACY、「*」なし=SYNERGY として扱う
+  // ============================================================
+  function dbeStripLegacyGenerationMark(name){
+    return String(name || '').normalize('NFKC').trim().replace(/\*+$/u, '').trim();
+  }
+
+  function dbeIsLegacyGenerationName(name){
+    return /\*+\s*$/u.test(String(name || '').normalize('NFKC'));
+  }
+
+  function makeKey(s){
     if (!s) return '';
-    return s.normalize('NFKC').toUpperCase().trim();
+    return dbeStripLegacyGenerationMark(s).normalize('NFKC').toUpperCase().trim();
   }
 
   function normalizeRegistryCategory(meta){
@@ -606,8 +621,10 @@
     ['不落城門の鉄岩鎧',           { kana:'フラクジョウモンノテツガンヨロイ', limited:true  }],
     ['昭和残影の作業衣',           { kana:'ショウワザンエイノサギョウイ',     limited:true  }],
     ['火守殻',                     { kana:'ヒモリカク',                       limited:true  }],
+    ['地護殻',                     { kana:'チゴカク',                         limited:true  }],
+    ['風纏殻',                     { kana:'フウテンカク',                     limited:true  }],
   // レジストリ（イベント開催中の限定防具）
-  //  ['火守殻',                     { kana:'ヒモリカク',                       limited:true, eventActive:true  }],
+    ['雷嵐殻',                     { kana:'ライランカク',                     limited:true, eventActive:true  }],
   ]);
 
   // ============================================================
@@ -3718,19 +3735,22 @@
         //               <span style="font-size:0.7em;">【種別】 [Pt6|Au5|UR|SSR]</span> </td>
         const spans = td.querySelectorAll('span');
         if (spans.length < 2) return null;
-        const name = (spans[0].textContent || '').trim();
+        const rawName = (spans[0].textContent || '').trim();
+        const name = dbeStripLegacyGenerationMark(rawName);
+        const legacy = dbeIsLegacyGenerationName(rawName);
+        const generation = legacy ? 'legacy' : 'synergy';
         const meta = (spans[1].textContent || '').trim();
         // ネックレス（Pt/Au/Ag/CuSn/Cu + 数字）
         let m = meta.match(/【\s*ネックレス\s*】\s*\[\s*(Pt|Au|Ag|CuSn|Cu)\s*(\d+)\s*\]/);
         if (m){
-          return { kind:'necklace', gradeKey:m[1], number:m[2], name };
+          return { kind:'necklace', gradeKey:m[1], number:m[2], name:rawName, rawName, legacy:false, generation:'synergy' };
         }
         // 武器/防具（UR/SSR）
         m = meta.match(/【\s*(武器|防具)\s*】\s*\[\s*(UR|SSR|SR|R|N)\s*\]/);
         if (m){
           const jkind = m[1]; const rarity = m[2];
           const kind = (jkind === '武器') ? 'weapon' : 'armor';
-          return { kind, name, rarity };
+          return { kind, name, rawName, rarity, legacy, generation };
         }
         return null;
       }catch(_){ return null; }
@@ -13401,26 +13421,115 @@
   }
 
   // --- [錠]/[解錠]セル背景色を適用 ---
+  function dbeGetLockCellState(cell, opt){
+    try{
+      if (!cell) return null;
+      const preferDom = !!(opt && opt.preferDom);
+      if (!preferDom){
+        if (cell.hasAttribute('released')) return 'released'; // [錠] = 未ロック
+        if (cell.hasAttribute('secured'))  return 'secured';  // [解錠] = ロック済み
+      }
+
+      const a = cell.querySelector('a');
+      const href = String(a ? (a.getAttribute('href') || a.href || '') : '');
+      const onclick = String(a ? (a.getAttribute('onclick') || '') : '');
+      const text = String(a ? (a.textContent || '') : (cell.textContent || '')).replace(/\s+/g, '');
+
+      // クリック直後は公式 toggleLock がリンク文字列だけを書き換えるため、
+      // 既存の secured/released 属性より、いま見えている [錠] / [解錠] を優先する。
+      if (preferDom){
+        if (text.includes('解錠')) return 'secured';
+        if (text.includes('錠'))   return 'released';
+      }
+
+      // 公式改修前: href="/lock/..." / href="/unlock/..."
+      if (href.includes('/lock/'))   return 'released';
+      if (href.includes('/unlock/')) return 'secured';
+
+      // 公式改修後: href="javascript:void(0);" + onclick="toggleLock(...)"
+      // toggleLock は表示文字列を [錠] / [解錠] に差し替えるため、文字列で状態を判定する。
+      if (/toggleLock\s*\(/.test(onclick) || /^javascript:/i.test(href)){
+        if (text.includes('解錠')) return 'secured';
+        if (text.includes('錠'))   return 'released';
+      }
+
+      // 最終フォールバック：リンク形式に依存せず、セル表示だけで判定する。
+      if (text.includes('解錠')) return 'secured';
+      if (text.includes('錠'))   return 'released';
+    }catch(_){}
+    return null;
+  }
+
+  function dbeApplyLockCellStateAttr(cell, state){
+    try{
+      if (!cell) return;
+      cell.removeAttribute('secured');
+      cell.removeAttribute('released');
+      if (state === 'released') cell.setAttribute('released', '');
+      if (state === 'secured')  cell.setAttribute('secured',  '');
+    }catch(_){}
+  }
+
+  function dbeReapplyLockCellColorKeepingScroll(cell, opt){
+    const sx = window.scrollX || window.pageXOffset || 0;
+    const sy = window.scrollY || window.pageYOffset || 0;
+    try{
+      dbeApplyLockCellStateAttr(cell, dbeGetLockCellState(cell, opt));
+      applyCellColors();
+    }catch(_){}
+    try{ window.scrollTo(sx, sy); }catch(_){}
+    try{
+      requestAnimationFrame(()=>{
+        try{ window.scrollTo(sx, sy); }catch(_){}
+      });
+    }catch(_){
+      try{ setTimeout(()=>window.scrollTo(sx, sy), 0); }catch(__){}
+    }
+  }
+
+  function dbeReadableTextColorForBg(bg, fallback){
+    try{
+      const color = String(bg || '').trim();
+      const m = color.match(/^#([0-9a-f]{6})$/i);
+      if (!m) return fallback || '#000000';
+      const hex = m[1];
+      const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16);
+      const lum = 0.299*r + 0.587*g + 0.114*b;
+      return lum > 186 ? '#FF0000' : '#FFFFFF';
+    }catch(_){
+      return fallback || '#000000';
+    }
+  }
+
   function applyCellColors(){
     const unlockedColor = readStr('unlockedColor');
     const lockedColor   = readStr('lockedColor');
     tableIds.forEach(id=>{
       const table = document.getElementById(id);
-      if (!table?.tHead) return;
+      if (!table?.tHead || !table.tBodies?.[0]) return;
+
       // 「解」列インデックス
-      const hdrs   = table.tHead.rows[0].cells;
-      const lockIdx = Array.from(hdrs).findIndex(th=>th.classList.contains(columnIds[id]['解']));
+      // 公式HTML差し替え・ID列追加・ヘッダーclone後でも拾えるよう、既存の動的検出を優先する。
+      let lockIdx = (typeof findLockColumnIndex === 'function') ? findLockColumnIndex(table) : -1;
+      if (lockIdx < 0){
+        const hdrs = table.tHead.rows[0].cells;
+        lockIdx = Array.from(hdrs).findIndex(th=>th.classList.contains(columnIds[id]['解']));
+      }
       if (lockIdx < 0) return;
+
       Array.from(table.tBodies[0].rows).forEach(row=>{
         const cell = row.cells[lockIdx];
-        // a[href*="/lock/"] があるなら「未ロック」→unlockedColor、それ以外を lockedColor
-        const isUnlocked = !!cell.querySelector('a[href*="/lock/"]');
-        const bg = isUnlocked ? unlockedColor : lockedColor;
+        if (!cell) return;
+
+        // released = 未ロック([錠])、secured = ロック済み([解錠])
+        // href /lock 形式だけでなく、公式改修後の javascript:void(0)+toggleLock 形式にも対応する。
+        const state = dbeGetLockCellState(cell);
+        dbeApplyLockCellStateAttr(cell, state);
+
+        const bg = (state === 'released') ? unlockedColor : lockedColor;
         cell.style.backgroundColor = bg;
-        // 明度計算して文字色を切り替え
-        const r = parseInt(bg.slice(1,3),16), g = parseInt(bg.slice(3,5),16), b = parseInt(bg.slice(5,7),16);
-        const lum = 0.299*r + 0.587*g + 0.114*b;
-        const txt = lum > 186 ? '#FF0000' : '#FFFFFF';
+
+        const txt = dbeReadableTextColorForBg(bg, (state === 'released') ? '#000000' : '#FFFFFF');
         cell.style.color = txt;
         const a = cell.querySelector('a');
         if (a) a.style.color = txt;
@@ -13431,6 +13540,16 @@
 
     });
   }
+
+
+
+
+
+
+
+
+
+
 
   // 〓〓〓 追加：アイテムID列の ON/OFF ▼ここから▼ 〓〓〓
   function toggleItemIdColumn(enabled){
@@ -14375,15 +14494,8 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
         if (lockIdx >= 0) {
           const cell = row.cells[lockIdx];
           cell.classList.add(colMap['解']);
-          const a = cell.querySelector('a');
-          if (a) {
-            if (a.href.includes('/lock/')) {
-              cell.setAttribute('released', '');
-            }
-            else if (a.href.includes('/unlock/')) {
-              cell.setAttribute('secured', '');
-            }
-          }
+          const state = dbeGetLockCellState(cell);
+          dbeApplyLockCellStateAttr(cell, state);
         }
         if (ryclIdx >= 0) {
           row.cells[ryclIdx].classList.add(colMap['分解']);
@@ -14391,6 +14503,41 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
       });
       // 初期色付け
       applyCellColors();
+
+      // 公式改修後の toggleLock(this, type, id) は、クリック後に同一セルの文字だけを
+      // [錠] / [解錠] へ差し替えるため、DBE側の背景色も後追いで再適用する。
+      table.addEventListener('click', e=>{
+        try{
+          const a = e.target.closest('a');
+          if (!a) return;
+          const td = a.closest('td');
+          if (!td) return;
+          const tr = td.closest('tr');
+          const __lockIdxNow = findLockColumnIndex(table);
+          const __tdIdxNow = (tr && tr.cells) ? Array.prototype.indexOf.call(tr.cells, td) : -1;
+          if (__lockIdxNow < 0 || __tdIdxNow !== __lockIdxNow) return;
+
+          const href = String(a.getAttribute('href') || a.href || '');
+          const onclick = String(a.getAttribute('onclick') || '');
+          const text = String(a.textContent || '').replace(/\s+/g, '');
+          const looksLockToggle = href.includes('/lock/') || href.includes('/unlock/') || /toggleLock\s*\(/.test(onclick) || /^javascript:/i.test(href) || text.includes('解錠') || text.includes('錠');
+          if (!looksLockToggle) return;
+
+          const reapply = ()=>{
+            try{
+              // クリック後は secured/released 属性が古いまま残っている場合があるため、
+              // いま見えているリンク文字列 [錠] / [解錠] を優先して状態を取り直す。
+              dbeReapplyLockCellColorKeepingScroll(td, { preferDom:true });
+            }catch(_){}
+          };
+          setTimeout(reapply, 0);
+          setTimeout(reapply, 30);
+          setTimeout(reapply, 80);
+          setTimeout(reapply, 350);
+          setTimeout(reapply, 1000);
+        }catch(_){}
+      });
+
       // イベント
       table.addEventListener('click', async e=>{
         const a = e.target.closest('a[href*="/lock/"],a[href*="/unlock/"]');
@@ -14502,14 +14649,10 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
           if (ryTd) ryTd.innerHTML = targetB?.innerHTML || '';
           // secured/released 属性を更新（色付け/マーカーの整合性）
           try{
-            td.removeAttribute('secured'); td.removeAttribute('released');
-            const __a2 = td.querySelector('a[href]');
-            const __href2 = __a2 ? String(__a2.getAttribute('href')||__a2.href||'') : '';
-            if (__href2.includes('/lock/')) td.setAttribute('released','');
-            else if (__href2.includes('/unlock/')) td.setAttribute('secured','');
+            dbeApplyLockCellStateAttr(td, dbeGetLockCellState(td, { preferDom:true }));
           }catch(_){}
           // 再色付け
-          applyCellColors();
+          dbeReapplyLockCellColorKeepingScroll(td, { preferDom:true });
         } catch(_err){
           // 失敗時も /lock・/unlock への通常遷移は行わない（プレーンテキスト「成功」ページへの遷移を防ぐ）。
           console.error('[DBE] lock/unlock toggle failed:', _err);
@@ -15549,6 +15692,29 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
       r2_5.append(idLbl1, idNum, idLbl2, idChk);
       ui.appendChild(r2_5);
 
+      // 〓〓〓〓〓 世代フィルターの行（《アイテムID》と《Rarity》の間に挿入）〓〓〓〓〓
+      const r2_6 = document.createElement('div');
+      Object.assign(r2_6.style, { marginTop:'4px', display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap' });
+      const genLbl = document.createElement('span');
+      genLbl.textContent = '世代：';
+      genLbl.style.fontSize = '1.1em';
+      const synergyLbl = document.createElement('label');
+      synergyLbl.style.margin = '0 4px';
+      const synergyChk = document.createElement('input');
+      synergyChk.type = 'checkbox';
+      synergyChk.checked = false;
+      synergyChk.addEventListener('change', ()=>{ applyFilter(); });
+      synergyLbl.append(synergyChk, document.createTextNode(' SYNERGY'));
+      const legacyLbl = document.createElement('label');
+      legacyLbl.style.margin = '0 4px';
+      const legacyChk = document.createElement('input');
+      legacyChk.type = 'checkbox';
+      legacyChk.checked = false;
+      legacyChk.addEventListener('change', ()=>{ applyFilter(); });
+      legacyLbl.append(legacyChk, document.createTextNode(' LEGACY'));
+      r2_6.append(genLbl, synergyLbl, legacyLbl);
+      ui.appendChild(r2_6);
+
       const r3=document.createElement('div');
       Object.assign(r3.style,{marginTop:'6px',display:'flex',alignItems:'center'});
       const s3=document.createElement('span'); s3.textContent='Rarity：'; s3.style.fontSize='1.2em';
@@ -15603,15 +15769,32 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
         }catch(_){}
         const txt = (td && td.textContent) ? String(td.textContent).trim() : '';
         if (!txt) return '';
-        return txt.split('\n')[0].split('【')[0].trim();
+        return dbeStripLegacyGenerationMark(txt.split('\n')[0].split('【')[0].trim());
       }
 
-      function setAll(v){ Object.values(elm).forEach(x=>x.checked=v); Object.values(rarObj).forEach(x=>x.checked=v); }
+      function dbeIsLegacyGenerationRow(row){
+        try{
+          const parsed = (typeof dbeParseNameTd === 'function') ? dbeParseNameTd(row.cells[nameCol]) : null;
+          if (parsed && parsed.kind && parsed.kind !== 'necklace') return !!parsed.legacy;
+        }catch(_){}
+        const cell = row && row.cells ? row.cells[nameCol] : null;
+        const firstSpan = cell ? cell.querySelector('span') : null;
+        const rawName = (firstSpan ? firstSpan.textContent : (cell ? cell.textContent : '')).trim();
+        return dbeIsLegacyGenerationName(rawName.split('\n')[0].split('【')[0].trim());
+      }
+
+      function setAll(v){
+        Object.values(elm).forEach(x=>x.checked=v);
+        Object.values(rarObj).forEach(x=>x.checked=v);
+        synergyChk.checked = v;
+        legacyChk.checked = v;
+      }
       function applyColor(){ Array.from(table.tBodies[0].rows).forEach(r=>{ const v=r.cells[elemCol].textContent.replace(/[0-9]/g,'').trim()||'なし'; r.cells[elemCol].style.backgroundColor=elemColors[v]; }); }
       function applyFilter(){
         const selectedRarities = Object.keys(elm).filter(rk=>elm[rk].checked);
         const selectedElements = Object.keys(rarObj).filter(el=>rarObj[el].checked);
         const pickedName = (table.dataset.dbeNamePick || '').trim();
+        const useGenerationFilter = (synergyChk.checked !== legacyChk.checked);
         // アイテムIDしきい値の取得（チェックON時のみ使用）
         // 仕様：weaponTable -> necClm-Equp 列、armorTable -> amrClm-Equp 列を参照
         // 実装：実セルから /equip/NNNNNN のリンクを直接抽出（列名変化に強い）
@@ -15636,6 +15819,16 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
             okN = (rowName === pickedName);
           }
 
+          // 世代フィルター：
+          // - 両方OFF / 両方ON は無効
+          // - LEGACYのみON   => 旧世代（末尾 * あり）のみ表示
+          // - SYNERGYのみON  => 新世代（末尾 * なし）のみ表示
+          let okGen = true;
+          if (useGenerationFilter){
+            const isLegacy = dbeIsLegacyGenerationRow(row);
+            okGen = legacyChk.checked ? isLegacy : !isLegacy;
+          }
+
           // アイテムIDフィルター：チェックON時のみ評価
           let okId = true;
           if (useIdFilter) {
@@ -15648,7 +15841,7 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
             okId = Number.isNaN(itemId) ? true : (itemId >= idThreshold);
           }
 
-          row.style.display = (okR && okE && okId && okN) ? '' : 'none';
+          row.style.display = (okR && okE && okGen && okId && okN) ? '' : 'none';
         });
 
         applyColor();
@@ -15945,7 +16138,10 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
         if (metaCache.has(row)) return metaCache.get(row);
         const cell = row.cells[idxMap[nameTitle]];
         const firstSpan = cell.querySelector('span');
-        const name = (firstSpan ? firstSpan.textContent : cell.textContent).trim();
+        const rawName = (firstSpan ? firstSpan.textContent : cell.textContent).trim();
+        const name = dbeStripLegacyGenerationMark(rawName);
+        const legacy = dbeIsLegacyGenerationName(rawName);
+        const generation = legacy ? 'legacy' : 'synergy';
         const raw  = cell.textContent;
         const rarity = dbePickRarityFromText(raw) || 'N';
         const canonical = keyMap.get(makeKey(name)) || null;
@@ -15968,7 +16164,7 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
           : 'regular';
         const limited = (category === 'limited');
         const eventActive = (category === 'event');
-        const obj = { row, name, raw, rarity, canonical, registered, registryMeta, kana, category, limited, eventActive };
+        const obj = { row, name, rawName, raw, rarity, canonical, registered, registryMeta, kana, category, limited, eventActive, legacy, generation };
         metaCache.set(row, obj);
         return obj;
       }
