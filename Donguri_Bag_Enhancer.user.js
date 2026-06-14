@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Donguri Bag Enhancer
 // @namespace    https://donguri.5ch.io/
-// @version      14.3.0.0
+// @version      14.3.1.1
 // @description  5ちゃんねる「どんぐりシステム」の「アイテムバッグ」ページ機能改良スクリプト。
 // @author       Author: 福呼び草 / Assistant: ChatGPT（OpenAI）
 // @contributor  Suggested by: 'ID:YTtKPa4Z0'
@@ -33,7 +33,7 @@
   // ============================================================
   // スクリプト自身のバージョン（About 表示用）
   // ============================================================
-  const DBE_VERSION    = '14.3.0.0';
+  const DBE_VERSION    = '14.3.1.0';
 
   // ============================================================
   // 現在のどんぐりドメイン
@@ -13678,6 +13678,112 @@
     return m2 ? m2[1] : null;
   }
 
+  function dbeIsLockToggleAnchor(a){
+    try{
+      if (!a || !a.matches || !a.matches('a')) return false;
+      const href    = String(a.getAttribute('href') || a.href || '');
+      const onclick = String(a.getAttribute('onclick') || '');
+      const text    = String(a.textContent || '').replace(/\s+/g, '');
+
+      // 旧公式: href="/lock/123" / href="/unlock/123"
+      if (/\/(?:lock|unlock)\/\d+/.test(href)) return true;
+
+      // 新公式: href="javascript:void(0);" + onclick="toggleLock(this, 'weapon', '123')"
+      if (/toggleLock\s*\(/.test(onclick)) return true;
+
+      // 保険: javascriptリンクかつ表示が [錠]/[解錠] の場合だけ対象にする
+      if (/^javascript:/i.test(href) && (text.includes('解錠') || text.includes('錠'))) return true;
+    }catch(_){}
+    return false;
+  }
+
+  function dbeExtractLockToggleItemIdFromAnchor(a){
+    try{
+      if (!a) return null;
+      const href = String(a.getAttribute('href') || a.href || '');
+      let m = href.match(/\/(?:lock|unlock)\/(\d+)/);
+      if (m) return m[1];
+
+      const onclick = String(a.getAttribute('onclick') || '');
+      m = onclick.match(/toggleLock\s*\(\s*this\s*,\s*['"][^'"]+['"]\s*,\s*['"]?(\d+)['"]?\s*\)/);
+      if (m) return m[1];
+    }catch(_){}
+    return null;
+  }
+
+  function dbeResolveLockToggleItemId(a, tr, table){
+    try{
+      let itemId = dbeExtractLockToggleItemIdFromAnchor(a);
+      if (itemId) return itemId;
+
+      // 行の《装》セルから抽出（新公式でも /equip/<id> は残っている）
+      const equpIdx = (table && table.tHead && table.tHead.rows && table.tHead.rows[0])
+        ? Array.from(table.tHead.rows[0].cells || []).findIndex(th => (th.textContent || '').trim() === '装')
+        : -1;
+      const equpCell = (tr && equpIdx >= 0 && tr.cells) ? tr.cells[equpIdx] : null;
+      itemId = extractItemIdFromEqupCell(equpCell);
+      if (itemId) return itemId;
+
+      // フォールバック：行内リンクの href / onclick から抽出
+      const links = tr ? Array.from(tr.querySelectorAll('a')) : [];
+      for (const link of links){
+        itemId = dbeExtractLockToggleItemIdFromAnchor(link);
+        if (itemId) return itemId;
+
+        const href = String(link.getAttribute('href') || link.href || '');
+        const mm = href.match(/\/(?:equip|modify\/(?:weapon|armor|necklace)\/(?:view|reroll)|recycle)\/(\d+)/);
+        if (mm) return mm[1];
+      }
+
+      // フォールバック：recycle-weapon-123 などの id 属性
+      const els = tr ? Array.from(tr.querySelectorAll('[id]')) : [];
+      for (const el of els){
+        const mm = String(el.id || '').match(/-(\d+)$/);
+        if (mm) return mm[1];
+      }
+    }catch(_){}
+    return null;
+  }
+
+  function dbeBuildLockToggleUrl(itemId, isUnlock){
+    const id = String(itemId || '').trim();
+    if (!id) return '';
+    return DBE_ORIGIN + (isUnlock ? '/unlock/' : '/lock/') + encodeURIComponent(id);
+  }
+
+  function dbeFindItemRowInTableById(table, itemId){
+    try{
+      const id = String(itemId || '').trim();
+      if (!table || !id || !table.tBodies || !table.tBodies[0]) return null;
+
+      const rows = Array.from(table.tBodies[0].rows || []);
+      for (const row of rows){
+        const links = Array.from(row.querySelectorAll('a'));
+        for (const a of links){
+          const href = String(a.getAttribute('href') || a.href || '');
+          const onclick = String(a.getAttribute('onclick') || '');
+          if (href.includes('/' + id) || onclick.includes("'" + id + "'") || onclick.includes('"' + id + '"')) {
+            return row;
+          }
+        }
+
+        const idEls = Array.from(row.querySelectorAll('[id]'));
+        if (idEls.some(el => String(el.id || '').endsWith('-' + id))) {
+          return row;
+        }
+
+        const equpIdx = (table.tHead && table.tHead.rows && table.tHead.rows[0])
+          ? Array.from(table.tHead.rows[0].cells || []).findIndex(th => (th.textContent || '').trim() === '装')
+          : -1;
+        const equpCell = (equpIdx >= 0 && row.cells) ? row.cells[equpIdx] : null;
+        if (extractItemIdFromEqupCell(equpCell) === id) {
+          return row;
+        }
+      }
+    }catch(_){}
+    return null;
+  }
+
   // ============================================================
   // ▽ここから▽ Soft Reload Utilities（テーブル単位の再読込）
   //  - /bag を fetch して対象 table の tbody だけを差し替える
@@ -14539,8 +14645,12 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
       });
 
       // イベント
+      // 公式改修後は href="/lock/..." ではなく
+      // href="javascript:void(0);" + onclick="toggleLock(this, type, id)" 形式になったため、
+      // 捕捉フェーズで先にDBEが横取りし、公式 toggleLock の素通り実行を防ぐ。
       table.addEventListener('click', async e=>{
-        const a = e.target.closest('a[href*="/lock/"],a[href*="/unlock/"]');
+        const a = e.target.closest('a');
+        if (!dbeIsLockToggleAnchor(a)) return;
         if (!a) return;
         const td = a.closest('td');
         if (!td) return;
@@ -14563,31 +14673,28 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
         const __tdIdxNow   = (tr && tr.cells) ? Array.prototype.indexOf.call(tr.cells, td) : -1;
         if (__lockIdxNow >= 0 && __tdIdxNow >= 0 && __tdIdxNow !== __lockIdxNow) return;
         e.preventDefault();
+        e.stopPropagation();
+        if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
         // クリック位置を記憶（後でスクロール復帰）
         try{ recordClickedCell(td, table); }catch(_){}
-        const isUnlock = a.href.includes('/unlock/');
-        showOverlay(isUnlock ? 'アンロックしています...' : 'ロックしています...');
+        const lockStateBefore = dbeGetLockCellState(td, { preferDom:true });
+        const linkTextBefore = String(a.textContent || '').replace(/\s+/g, '');
+        const hrefBefore = String(a.getAttribute('href') || a.href || '');
+        const isUnlock =
+          lockStateBefore === 'secured' ||
+          hrefBefore.includes('/unlock/') ||
+          linkTextBefore.includes('解錠');
+        showOverlay(isUnlock ? '解錠しています...' : 'ロックしています...');
         let itemId = null;
         try {
-          // 1) 行の《装》セルから itemId を抽出（リンク書式に依存しない）
-          try{
-            const __equpIdxNow = __getHdrIdx('装');
-            const equpCell = (tr && __equpIdxNow>=0) ? tr.cells[__equpIdxNow] : ((tr && equpIdx>=0) ? tr.cells[equpIdx] : null);
-            if (typeof extractItemIdFromEqupCell === 'function'){
-              itemId = extractItemIdFromEqupCell(equpCell);
-            }
-            if (!itemId && equpCell){
-              const m = (equpCell.textContent||'').match(/(\d+)/);
-              itemId = m ? m[1] : null;
-            }
-            // フォールバック：行内の /equip/<id> から抽出（列位置/class に依存しない）
-            if (!itemId && tr){
-              const eqA = tr.querySelector('a[href*="/equip/"]');
-              const href = eqA ? (eqA.getAttribute('href') || eqA.href || '') : '';
-              const mm = href.match(/\/equip\/(\d+)/);
-              itemId = mm ? mm[1] : null;
-            }
-          }catch(_){}
+          // 1) itemId を抽出
+          //    旧公式: /lock/123 / /unlock/123
+          //    新公式: toggleLock(this, 'weapon', '123')
+          //    どちらも同じDBE処理へ流す。
+          itemId = dbeResolveLockToggleItemId(a, tr, table);
+          if (!itemId) {
+            throw new Error('lock/unlock itemId not found');
+          }
 
           // 2) 送信は form の有無で POST/GET を自動判定
           const form = a.closest('form');
@@ -14602,13 +14709,12 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
             // ログ：ロック／解錠の記録（itemId が取れていれば残す）
             try{ if (itemId) dbeChestLogActionById(itemId, isUnlock ? '解錠' : 'ロック'); }catch(_){}
           } else {
-            const res = await fetch(a.href, Object.assign({}, fetchOptBase, { method:'GET' }));
+            const actionUrl = dbeBuildLockToggleUrl(itemId, isUnlock);
+            if (!actionUrl) throw new Error('lock/unlock action URL could not be built');
+            const res = await fetch(actionUrl, Object.assign({}, fetchOptBase, { method:'GET' }));
             html = await res.text();
-            // a.href に ID が含まれる形式ならログ化
-            try{
-              const mm = a.href.match(/\/(unlock|lock)\/(\d+)/);
-              if (mm) dbeChestLogActionById(mm[2], mm[1]==='lock'?'ロック':'解錠');
-            }catch(_){}
+            // ログ：新旧リンク形式に依存せず、抽出済み itemId を使う
+            try{ dbeChestLogActionById(itemId, isUnlock ? '解錠' : 'ロック'); }catch(_){}
           }
 
           // 3) 返ってきた内容からテーブルを取り出す。
@@ -14634,15 +14740,16 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
           // itemId がなければフォールバックで a.href から推測
           if (!itemId){
             const mm = a.href.match(/\/(?:unlock|lock)\/(\d+)/);
-            itemId = mm ? mm[1] : null;
+            itemId = dbeResolveLockToggleItemId(a, tr, table);
           }
-          const targetA = Array.from(newTable.tBodies[0].rows)
-                                .map(r=>r.cells[newLockIdx])
-                                .find(c=> itemId
-                                  ? c.querySelector(`a[href*="/${itemId}"]`)
-                                  : c.querySelector('a[href*="/unlock/"],a[href*="/lock/"]'));
-          if (!targetA){ throw new Error('lock/unlock target row not found: ' + (itemId || 'unknown')); }
-          const targetB = targetA.closest('tr')?.cells?.[newRyclIdx] || null;
+          const targetRow = itemId
+            ? dbeFindItemRowInTableById(newTable, itemId)
+            : Array.from(newTable.tBodies[0].rows)
+                .find(r => r.cells[newLockIdx]?.querySelector('a[href*="/unlock/"],a[href*="/lock/"],a[onclick*="toggleLock"]'));
+          if (!targetRow){ throw new Error('lock/unlock target row not found: ' + (itemId || 'unknown')); }
+          const targetA = targetRow.cells[newLockIdx] || null;
+          if (!targetA){ throw new Error('lock/unlock target lock cell not found: ' + (itemId || 'unknown')); }
+          const targetB = (newRyclIdx >= 0) ? (targetRow.cells[newRyclIdx] || null) : null;
           td.innerHTML = targetA.innerHTML;
           const __ryclIdxNow = __getHdrIdx('分解');
           const ryTd = (__ryclIdxNow>=0 && tr && tr.cells) ? tr.cells[__ryclIdxNow] : (tr ? tr.querySelector(`td.${colMap['分解']}`) : null);
@@ -14658,8 +14765,7 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
           console.error('[DBE] lock/unlock toggle failed:', _err);
           try{
             if (!itemId) {
-              const mm = a.href.match(/\/(?:unlock|lock)\/(\d+)/);
-              itemId = mm ? mm[1] : null;
+              itemId = dbeResolveLockToggleItemId(a, tr, table);
             }
             dbeShowAlertDialog(
               'ロック／解錠の反映に失敗しました。\nページを再読み込みして状態を確認してください。',
@@ -14678,7 +14784,7 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
         } finally {
           hideOverlay();
         }
-      });
+      }, true);
     });
   }
 
