@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Donguri Bag Enhancer
 // @namespace    https://donguri.5ch.io/
-// @version      14.3.1.1
+// @version      14.3.2.1
 // @description  5ちゃんねる「どんぐりシステム」の「アイテムバッグ」ページ機能改良スクリプト。
 // @author       Author: 福呼び草 / Assistant: ChatGPT（OpenAI）
 // @contributor  Suggested by: 'ID:YTtKPa4Z0'
@@ -33,7 +33,7 @@
   // ============================================================
   // スクリプト自身のバージョン（About 表示用）
   // ============================================================
-  const DBE_VERSION    = '14.3.1.0';
+  const DBE_VERSION    = '14.3.2.1';
 
   // ============================================================
   // 現在のどんぐりドメイン
@@ -623,8 +623,9 @@
     ['火守殻',                     { kana:'ヒモリカク',                       limited:true  }],
     ['地護殻',                     { kana:'チゴカク',                         limited:true  }],
     ['風纏殻',                     { kana:'フウテンカク',                     limited:true  }],
+    ['雷嵐殻',                     { kana:'ライランカク',                     limited:true  }],
   // レジストリ（イベント開催中の限定防具）
-    ['雷嵐殻',                     { kana:'ライランカク',                     limited:true, eventActive:true  }],
+    ['水鏡殻',                     { kana:'ミカガミカク',                     limited:true, eventActive:true  }],
   ]);
 
   // ============================================================
@@ -8381,7 +8382,47 @@
       return ids;
     }
 
-   // ── メインページで未ロック（/lock/）の行にマーキング付与 ──
+   // ── 行のロック状態取得（旧 href=/lock 形式／新 toggleLock(...) 形式の両対応） ──
+    function dbeChestGetLockInfoFromRow(tr, table){
+      const info = { cell:null, anchor:null, state:null, isUnlocked:false, isLocked:false, itemId:null };
+      try{
+        if (!tr || !table) return info;
+        const map = headerMap(table);
+        const iLock = map['解'];
+        if (iLock == null || iLock < 0 || !tr.cells || !tr.cells[iLock]) return info;
+
+        const cell = tr.cells[iLock];
+        const anchor = cell.querySelector('a[href], a[onclick]');
+        info.cell = cell;
+        info.anchor = anchor;
+
+        if (typeof dbeGetLockCellState === 'function'){
+          info.state = dbeGetLockCellState(cell, { preferDom:true });
+        }
+
+        // 念のためのフォールバック。
+        // 旧公式: href="/lock/123" / href="/unlock/123"
+        // 新公式: href="javascript:void(0);" + onclick="toggleLock(this, 'weapon', '123')"
+        if (!info.state){
+          const href = String(anchor && (anchor.getAttribute('href') || anchor.href) || '');
+          const text = String(anchor ? anchor.textContent : cell.textContent || '').replace(/\s+/g, '');
+          if (href.includes('/lock/')) info.state = 'released';
+          else if (href.includes('/unlock/')) info.state = 'secured';
+          else if (text.includes('解錠')) info.state = 'secured';
+          else if (text.includes('錠')) info.state = 'released';
+        }
+
+        info.isUnlocked = (info.state === 'released'); // [錠] = 未ロック
+        info.isLocked   = (info.state === 'secured');  // [解錠] = ロック済み
+
+        if (typeof dbeResolveLockToggleItemId === 'function'){
+          info.itemId = dbeResolveLockToggleItemId(anchor, tr, table);
+        }
+      }catch(_e){}
+      return info;
+    }
+
+   // ── メインページで未ロック（[錠]）の行にマーキング付与 ──
     function markOnHoldInMain(){
       const mark = (tableSel)=>{
         const table = document.querySelector(tableSel);
@@ -8390,12 +8431,11 @@
         const iEqup = map['装'], iLock = map['解'];
         if (iEqup<0 || iLock<0) return;
         Array.from(table.tBodies[0].rows).forEach(tr=>{
-          const lockA = tr.cells[iLock]?.querySelector('a[href]');
           const aEqup = tr.cells[iEqup]?.querySelector('a[href*="/equip/"]');
           const id = aEqup?.href?.match(/\/equip\/(\d+)/)?.[1];
-          if (!id || !lockA) return;
-          const href = String(lockA.getAttribute('href')||'');
-          if (href.includes('/lock/')){ // 未ロック（＝ロック操作が可能）
+          if (!id) return;
+          const lockInfo = dbeChestGetLockInfoFromRow(tr, table);
+          if (lockInfo.isUnlocked){ // 未ロック（＝ロック操作が可能）
             tr.classList.add('dbe-prm-Chest--onhold');
           }
         });
@@ -8434,11 +8474,10 @@
         const iLock = map['解'];
         if (iEqup<0 || iLock<0) return;
         Array.from(table.tBodies[0].rows).forEach(tr=>{
-          const lockA = tr.cells[iLock]?.querySelector('a[href]');
-          const href = String(lockA?.getAttribute('href') || '');
-          if (!href.includes('/lock/')) return; // 未ロックのみ
+          const lockInfo = dbeChestGetLockInfoFromRow(tr, table);
+          if (!lockInfo.isUnlocked) return; // 未ロックのみ
           const a = tr.cells[iEqup]?.querySelector('a[href*="/equip/"]');
-          const id = a?.href?.match(/\/equip\/(\d+)/)?.[1];
+          const id = a?.href?.match(/\/equip\/(\d+)/)?.[1] || lockInfo.itemId;
           if (id) ids.add(id);
         });
       };
@@ -8446,7 +8485,7 @@
       return ids;
     }
 
-    // ── 未ロック（/lock/）かつ未マーキングの行へ onhold を付与 ──
+    // ── 未ロック（[錠]）かつ未マーキングの行へ onhold を付与 ──
     function applyOnHoldToCurrentUnlocked(onlyNotMarked){
       const apply = (tableSel)=>{
         const table = document.querySelector(tableSel);
@@ -8457,8 +8496,8 @@
         Array.from(table.tBodies[0].rows).forEach(tr=>{
           const lockA = tr.cells[iLock]?.querySelector('a[href]');
           if (!lockA) return;
-          const href = String(lockA.getAttribute('href')||'');
-          if (href.includes('/lock/')){ // 未ロック
+          const lockInfo = dbeChestGetLockInfoFromRow(tr, table);
+          if (lockInfo.isUnlocked){ // 未ロック
             if (!onlyNotMarked || !tr.classList.contains('dbe-prm-Chest--onhold')){
               tr.classList.add('dbe-prm-Chest--onhold');
             }
@@ -8708,10 +8747,9 @@
           if (onHoldId.has(id)) return;
           // ↓ ここを追加（preSetに無ければ「新規」）
           if (!preSet.has(id)) newIdsLoop.add(id);
-          // ロック/解錠セル（列特定に失敗した場合は行全体から推定）
-          const lockCand = (iLock>=0 ? tr.cells[iLock] : tr);
-          const aLock = lockCand?.querySelector?.('a[href*="/lock/"], a[href*="/unlock/"]');
-          const hrefL = String(aLock?.getAttribute?.('href')||'');
+          // ロック/解錠セル（旧 href=/lock 形式／新 toggleLock(...) 形式の両対応）
+          const lockInfo = dbeChestGetLockInfoFromRow(tr, table);
+          const isUnlocked = lockInfo.isUnlocked;
           // onlyNew=ON（既定）：既存は対象外（新規のみ評価）
           if (onlyNew && preSet.has(id)) return;
           // ルール評価：'lock'→ロックキュー、'del'→分解キュー、null→保留
@@ -8800,7 +8838,7 @@
           }
 
           const act = decideAction(rowInfo, rulesSnap); // 'lock' | 'del' | null
-          if (act==='lock' && hrefL.includes('/lock/')){
+          if (act==='lock' && isUnlocked){
             DBE_CHEST.qLock.push({table:kind, id});
           } else if (act==='del'){
             // 一括分解モードでは、フィルタカードによる分解対象を /recycle キューには積まない。
@@ -8811,14 +8849,14 @@
             // 分解は「未ロック」かつ「分解リンクが存在」する行だけを対象にする
             const recCand = (iRycl>=0 ? tr.cells[iRycl] : tr);
             const ryclA = recCand?.querySelector?.('a[href*="/recycle/"]');
-            if (hrefL.includes('/lock/') && ryclA){
+            if (isUnlocked && ryclA){
               // 仕様上：wep/amr のみ（necklaceTable は今回対象外）
               DBE_CHEST.qRecycle.push({table:kind, id});
             }
           } else {
             // 保留（どちらにも該当しない）:
             // 同一セッション内での再判定を避けるため、未ロック行に限り即 onhold を付与
-            if (hrefL.includes('/lock/')){
+            if (isUnlocked){
               tr.classList.add('dbe-prm-Chest--onhold');
               onHoldId.add(id); // この Set は DBE_CHEST.onHoldIds を参照している
             }
@@ -9693,12 +9731,8 @@
         const tr = dbeChestFindRowByItemId(doc, itemId);
         if (!tr) return false;
         const table = tr.closest('table');
-        const map = table ? headerMap(table) : {};
-        const iLock = map['解'];
-        if (iLock == null || iLock < 0 || !tr.cells[iLock]) return false;
-        const a = tr.cells[iLock].querySelector('a[href]');
-        const href = String(a && (a.getAttribute('href') || a.href) || '');
-        return href.includes('/unlock/');
+        const lockInfo = dbeChestGetLockInfoFromRow(tr, table);
+        return lockInfo.isLocked;
       }catch(_){
         return false;
       }
