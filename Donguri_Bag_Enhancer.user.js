@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Donguri Bag Enhancer
 // @namespace    https://donguri.5ch.io/
-// @version      14.3.2.1
+// @version      14.3.2.4
 // @description  5ちゃんねる「どんぐりシステム」の「アイテムバッグ」ページ機能改良スクリプト。
 // @author       Author: 福呼び草 / Assistant: ChatGPT（OpenAI）
 // @contributor  Suggested by: 'ID:YTtKPa4Z0'
@@ -33,7 +33,7 @@
   // ============================================================
   // スクリプト自身のバージョン（About 表示用）
   // ============================================================
-  const DBE_VERSION    = '14.3.2.1';
+  const DBE_VERSION    = '14.3.2.4';
 
   // ============================================================
   // 現在のどんぐりドメイン
@@ -625,6 +625,54 @@
     ['風纏殻',                     { kana:'フウテンカク',                     limited:true  }],
     ['雷嵐殻',                     { kana:'ライランカク',                     limited:true  }],
   // レジストリ（イベント開催中の限定防具）
+    ['代表ユニフォームメキシコ',                 { kana:'ダイヒョウユニフォームメキシコ',                   limited:true, eventActive:true  }],
+    ['代表ユニフォームアメリカ',                 { kana:'ダイヒョウユニフォームアメリカ',                   limited:true, eventActive:true  }],
+    ['代表ユニフォーム日本',                     { kana:'ダイヒョウユニフォームニッポン',                   limited:true, eventActive:true  }],
+    ['代表ユニフォームニュージーランド',         { kana:'ダイヒョウユニフォームニュージーランド',           limited:true, eventActive:true  }],
+    ['代表ユニフォームオーストラリア',           { kana:'ダイヒョウユニフォームオーストラリア',             limited:true, eventActive:true  }],
+    ['代表ユニフォームイラク',                   { kana:'ダイヒョウユニフォームイラク',                     limited:true, eventActive:true  }],
+    ['代表ユニフォームイラン',                   { kana:'ダイヒョウユニフォームイラン',                     limited:true, eventActive:true  }],
+    ['代表ユニフォームヨルダン',                 { kana:'ダイヒョウユニフォームヨルダン',                   limited:true, eventActive:true  }],
+    ['代表ユニフォーム韓国',                     { kana:'ダイヒョウユニフォームカンコク',                   limited:true, eventActive:true  }],
+    ['代表ユニフォームカタール',                 { kana:'ダイヒョウユニフォームカタール',                   limited:true, eventActive:true  }],
+    ['代表ユニフォームサウジアラビア',           { kana:'ダイヒョウユニフォームサウジアラビア',             limited:true, eventActive:true  }],
+    ['代表ユニフォームウズベキスタン',           { kana:'ダイヒョウユニフォームウズベキスタン',             limited:true, eventActive:true  }],
+    ['代表ユニフォームアルジェリア',             { kana:'ダイヒョウユニフォームアルジェリア',               limited:true, eventActive:true  }],
+    ['代表ユニフォームカーボベルデ',             { kana:'ダイヒョウユニフォームカーボベルデ',               limited:true, eventActive:true  }],
+    ['代表ユニフォームコンゴ民主共和国',         { kana:'ダイヒョウユニフォームコンゴミンシュキョウワコク', limited:true, eventActive:true  }],
+    ['代表ユニフォームコートジボワール',         { kana:'ダイヒョウユニフォームコートジボワール',           limited:true, eventActive:true  }],
+    ['代表ユニフォームエジプト',                 { kana:'ダイヒョウユニフォームエジプト',                   limited:true, eventActive:true  }],
+    ['代表ユニフォームガーナ',                   { kana:'ダイヒョウユニフォームガーナ',                     limited:true, eventActive:true  }],
+    ['代表ユニフォームモロッコ',                 { kana:'ダイヒョウユニフォームモロッコ',                   limited:true, eventActive:true  }],
+    ['代表ユニフォームセネガル',                 { kana:'ダイヒョウユニフォームセネガル',                   limited:true, eventActive:true  }],
+    ['代表ユニフォーム南アフリカ',               { kana:'ダイヒョウユニフォームミナミアフリカ',             limited:true, eventActive:true  }],
+    ['代表ユニフォームチュニジア',               { kana:'ダイヒョウユニフォームチュニジア',                 limited:true, eventActive:true  }],
+    ['代表ユニフォームキュラソー',               { kana:'ダイヒョウユニフォームキュラソー',                 limited:true, eventActive:true  }],
+    ['代表ユニフォームハイチ',                   { kana:'ダイヒョウユニフォームハイチ',                     limited:true, eventActive:true  }],
+    ['代表ユニフォームパナマ',                   { kana:'ダイヒョウユニフォームパナマ',                     limited:true, eventActive:true  }],
+    ['代表ユニフォームアルゼンチン',             { kana:'ダイヒョウユニフォームアルゼンチン',               limited:true, eventActive:true  }],
+    ['代表ユニフォームブラジル',                 { kana:'ダイヒョウユニフォームブラジル',                   limited:true, eventActive:true  }],
+    ['代表ユニフォームコロンビア',               { kana:'ダイヒョウユニフォームコロンビア',                 limited:true, eventActive:true  }],
+    ['代表ユニフォームエクアドル',               { kana:'ダイヒョウユニフォームエクアドル',                 limited:true, eventActive:true  }],
+    ['代表ユニフォームパラグアイ',               { kana:'ダイヒョウユニフォームパラグアイ',                 limited:true, eventActive:true  }],
+    ['代表ユニフォームウルグアイ',               { kana:'ダイヒョウユニフォームウルグアイ',                 limited:true, eventActive:true  }],
+    ['代表ユニフォームオーストリア',             { kana:'ダイヒョウユニフォームオーストリア',               limited:true, eventActive:true  }],
+    ['代表ユニフォームベルギー',                 { kana:'ダイヒョウユニフォームベルギー',                   limited:true, eventActive:true  }],
+    ['代表ユニフォームボスニア・ヘルツェゴビナ', { kana:'ダイヒョウユニフォームボスニア・ヘルツェゴビナ',   limited:true, eventActive:true  }],
+    ['代表ユニフォームクロアチア',               { kana:'ダイヒョウユニフォームクロアチア',                 limited:true, eventActive:true  }],
+    ['代表ユニフォームチェコ',                   { kana:'ダイヒョウユニフォームチェコ',                     limited:true, eventActive:true  }],
+    ['代表ユニフォームイングランド',             { kana:'ダイヒョウユニフォームイングランド',               limited:true, eventActive:true  }],
+    ['代表ユニフォームフランス',                 { kana:'ダイヒョウユニフォームフランス',                   limited:true, eventActive:true  }],
+    ['代表ユニフォームドイツ',                   { kana:'ダイヒョウユニフォームドイツ',                     limited:true, eventActive:true  }],
+    ['代表ユニフォームオランダ',                 { kana:'ダイヒョウユニフォームオランダ',                   limited:true, eventActive:true  }],
+    ['代表ユニフォームノルウェー',               { kana:'ダイヒョウユニフォームノルウェー',                 limited:true, eventActive:true  }],
+    ['代表ユニフォームポルトガル',               { kana:'ダイヒョウユニフォームポルトガル',                 limited:true, eventActive:true  }],
+    ['代表ユニフォームスコットランド',           { kana:'ダイヒョウユニフォームスコットランド',             limited:true, eventActive:true  }],
+    ['代表ユニフォームスペイン',                 { kana:'ダイヒョウユニフォームスペイン',                   limited:true, eventActive:true  }],
+    ['代表ユニフォームスウェーデン',             { kana:'ダイヒョウユニフォームスウェーデン',               limited:true, eventActive:true  }],
+    ['代表ユニフォームスイス',                   { kana:'ダイヒョウユニフォームスイス',                     limited:true, eventActive:true  }],
+    ['代表ユニフォームトルコ',                   { kana:'ダイヒョウユニフォームトルコ',                     limited:true, eventActive:true  }],
+    ['代表ユニフォームカナダ',                   { kana:'ダイヒョウユニフォームカナダ',                     limited:true, eventActive:true  }],
     ['水鏡殻',                     { kana:'ミカガミカク',                     limited:true, eventActive:true  }],
   ]);
 
@@ -9231,7 +9279,7 @@
               if (pr.op==='未満' && !(n<th)) continue;
             }
           }
-          
+
           // 互換：旧仕様の Buff 個数（既存カード救済）
           if (r.buff && !r.buff.all){
             const n = Number(rowInfo.buffCnt)||0;
@@ -9373,11 +9421,37 @@
       }
     }
 
+    async function dbeChestFetchLockToggleAction(actionName, id){
+      // 公式HTMLの toggleLock(element, itemType, itemId) と同じく、
+      // /lock/{id} / /unlock/{id} を GET し、response.ok まで待ってから次へ進む。
+      // ここでは DOMParser 文書上の javascript:void(0) リンクを click せず、URLを直接叩く。
+      const action = String(actionName || '').toLowerCase();
+      const itemId = String(id || '').trim();
+      if (!/^(lock|unlock)$/.test(action) || !itemId) return false;
+
+      const url = `${DBE_ORIGIN}/${action}/${encodeURIComponent(itemId)}`;
+      const resp = await fetch(url, {
+        method: 'GET',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        redirect: 'follow'
+      });
+
+      // 新公式は response.ok を見てDOM更新するため、DBE側も ok を基準にする。
+      // レスポンス本文が「成功」等のプレーンテキストでも消費だけして、判定は後続の /bag 検証に任せる。
+      try{ await resp.text(); }catch(_){}
+      return !!(resp && resp.ok);
+    }
+
     async function dbeChestSendActionQueueOnce(actionName, ids){
-      // actionName: 'lock' | 'recycle'
-      // v12.0.1.16:
-      // サーバーレスポンスは待たない。
-      // 指定間隔で fetch を一方的に投げ、成否確認は全送信後の /bag 検証だけで行う。
+      // actionName: 'lock' | 'unlock' | 'recycle'
+      // v14.3.2.3:
+      // 公式側の /lock / /unlock は href 直リンクから toggleLock() 経由の fetch に変わったが、
+      // 実際の通信先は従来どおり /lock/{id} / /unlock/{id}。
+      // そのため DBE の高速設計は維持し、リクエストはどんどん送り出す。
+      // ただし、送信直後に /bag 検証へ進むとサーバー反映前を読んでしまう可能性があるため、
+      // 送信済み fetch 群を並列で待ってから、従来どおり /bag 検証はキュー単位で1回だけ行う。
+      const pending = [];
       for (const id of ids){
         if (DBE_CHEST._userAbort || DBE_CHEST._serverError) return;
         const timing = dbeReadChestActionTiming();
@@ -9385,7 +9459,7 @@
         try{
           const path = `/${actionName}/${encodeURIComponent(id)}`;
           const url = `${DBE_ORIGIN}${path}`;
-          fetch(url, {
+          const p = fetch(url, {
             method: 'GET',
             credentials: 'same-origin',
             cache: 'no-store',
@@ -9395,14 +9469,31 @@
               'Accept': 'text/html, text/plain, */*',
               'X-Requested-With': 'XMLHttpRequest'
             }
-          }).catch(err=>{
-            // この段階では中断しない。
-            // 後続の /bag 検証で未反映なら再送対象にする。
-            console.warn(`[DBE] ${actionName} request failed asynchronously; will verify later:`, id, err);
-          });
+          })
+            .then(async resp=>{
+              try{ await resp.text(); }catch(_){}
+              if (!resp.ok){
+                console.warn(`[DBE] ${actionName} request returned non-ok response; will verify later:`, id, resp.status);
+              }
+            })
+            .catch(err=>{
+              // この段階では中断しない。
+              // 後続の /bag 検証で未反映なら再送対象にする。
+              console.warn(`[DBE] ${actionName} request failed asynchronously; will verify later:`, id, err);
+            });
+          pending.push(p);
         }catch(err){
           console.warn(`[DBE] ${actionName} request dispatch failed; will verify later:`, id, err);
         }
+      }
+
+      if (pending.length){
+        const timing = dbeReadChestActionTiming();
+        const settleMs = Math.max(500, Math.min(5000, Number(timing.waitMs || 0) * 2 || 1000));
+        await Promise.race([
+          Promise.allSettled(pending),
+          new Promise(resolve=>setTimeout(resolve, settleMs))
+        ]);
       }
     }
 
@@ -14976,7 +15067,7 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
       const t = th.textContent.trim();
       if (colMap[t]) idxMap[t] = i;
     });
-    
+
     // 〓〓〓〓〓 名称ヘッダー（武器/防具）に 4段階サイクルソートをワイヤリング 〓〓〓〓〓
     wireNameColumnSort(table, id, idxMap, hdrs, headerRow);
 
