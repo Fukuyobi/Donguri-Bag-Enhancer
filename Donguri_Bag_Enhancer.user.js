@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Donguri Bag Enhancer
 // @namespace    https://donguri.5ch.io/
-// @version      14.3.2.4
+// @version      14.3.8.2
 // @description  5ちゃんねる「どんぐりシステム」の「アイテムバッグ」ページ機能改良スクリプト。
 // @author       Author: 福呼び草 / Assistant: ChatGPT（OpenAI）
 // @contributor  Suggested by: 'ID:YTtKPa4Z0'
@@ -33,7 +33,7 @@
   // ============================================================
   // スクリプト自身のバージョン（About 表示用）
   // ============================================================
-  const DBE_VERSION    = '14.3.2.4';
+  const DBE_VERSION    = '14.3.8.2';
 
   // ============================================================
   // 現在のどんぐりドメイン
@@ -620,11 +620,15 @@
     ['命護りの春司衣',             { kana:'イノチマモリノハルツカサキヌ',     limited:true  }],
     ['不落城門の鉄岩鎧',           { kana:'フラクジョウモンノテツガンヨロイ', limited:true  }],
     ['昭和残影の作業衣',           { kana:'ショウワザンエイノサギョウイ',     limited:true  }],
-    ['火守殻',                     { kana:'ヒモリカク',                       limited:true  }],
-    ['地護殻',                     { kana:'チゴカク',                         limited:true  }],
-    ['風纏殻',                     { kana:'フウテンカク',                     limited:true  }],
-    ['雷嵐殻',                     { kana:'ライランカク',                     limited:true  }],
   // レジストリ（イベント開催中の限定防具）
+    ['火守殻',                     { kana:'ヒモリカク',                       limited:true, eventActive:true  }],
+    ['地護殻',                     { kana:'チゴカク',                         limited:true, eventActive:true  }],
+    ['風纏殻',                     { kana:'フウテンカク',                     limited:true, eventActive:true  }],
+    ['雷嵐殻',                     { kana:'ライランカク',                     limited:true, eventActive:true  }],
+    ['水鏡殻',                     { kana:'スイキョウカク',                   limited:true, eventActive:true  }],
+    ['氷晶殻',                     { kana:'ヒョウショウカク',                 limited:true, eventActive:true  }],
+    ['光輝殻',                     { kana:'コウキカク',                       limited:true, eventActive:true  }],
+    ['虚牢殻',                     { kana:'キョロウカク',                     limited:true, eventActive:true  }],
     ['代表ユニフォームメキシコ',                 { kana:'ダイヒョウユニフォームメキシコ',                   limited:true, eventActive:true  }],
     ['代表ユニフォームアメリカ',                 { kana:'ダイヒョウユニフォームアメリカ',                   limited:true, eventActive:true  }],
     ['代表ユニフォーム日本',                     { kana:'ダイヒョウユニフォームニッポン',                   limited:true, eventActive:true  }],
@@ -673,7 +677,6 @@
     ['代表ユニフォームスイス',                   { kana:'ダイヒョウユニフォームスイス',                     limited:true, eventActive:true  }],
     ['代表ユニフォームトルコ',                   { kana:'ダイヒョウユニフォームトルコ',                     limited:true, eventActive:true  }],
     ['代表ユニフォームカナダ',                   { kana:'ダイヒョウユニフォームカナダ',                     limited:true, eventActive:true  }],
-    ['水鏡殻',                     { kana:'ミカガミカク',                     limited:true, eventActive:true  }],
   ]);
 
   // ============================================================
@@ -3094,7 +3097,14 @@
       // ハンドラ
       btnAbort.onclick = ()=>{
         const DBE_CHEST = (window.DBE_CHEST = window.DBE_CHEST || {});
-        DBE_CHEST._userAbort = true; // 次の宝箱実行を抑止
+        // 「中断する」は即時キャンセルではなく、
+        // 現在回の「宝箱を開けてフィルタカードで選別する」処理を最後まで流し、
+        // 次の宝箱を開ける直前で停止するためのフラグとして扱う。
+        // ※ロック／分解キューの途中停止に使うと、未送信IDが残って検証エラーになる。
+        DBE_CHEST._userAbort = true;
+        try{
+          dbeAppendChestPlainLog('中断要求を受け付けました。現在回の選別完了後、次の宝箱は開かずに終了します。');
+        }catch(_){}
         btnAbort.textContent = '中断します…';
         btnAbort.disabled = true;
         btnAbort.style.opacity = '0.6';
@@ -4088,9 +4098,14 @@
     function dbeFinishProgressUI(){
       const DBE_CHEST = (window.DBE_CHEST = window.DBE_CHEST || {});
       clearInterval(DBE_CHEST._progressTimer); DBE_CHEST._progressTimer = null;
-      // (12) 正常終了メッセージ（ユーザー中断／サーバーエラー時は表示しない）
+      // (12) 終了メッセージ
+      // - 通常終了：正常終了
+      // - ユーザー中断：現在回を完了して次の宝箱を開かず終了
+      // - サーバーエラー：エラーダイアログ側に任せる
       try{
-        if (!DBE_CHEST._userAbort && !DBE_CHEST._serverError){
+        if (DBE_CHEST._userAbort && !DBE_CHEST._serverError){
+          dbeAppendChestPlainLog('中断要求により、次の宝箱を開かずに終了しました');
+        } else if (!DBE_CHEST._userAbort && !DBE_CHEST._serverError){
           dbeAppendChestPlainLog('プロセスは正常に終了しました');
         }
       }catch(_){}
@@ -7075,6 +7090,58 @@
         lineHeight:'1.5'
       });
 
+      const sortoutGuide = document.createElement('div');
+      sortoutGuide.textContent = '整理する種類を選んで「アイテムを整理する」ボタンを押してください。';
+      Object.assign(sortoutGuide.style,{
+        fontSize:'0.95em',
+        margin:'0',
+        padding:'0 1em 0 3em',
+        lineHeight:'1.5'
+      });
+
+      const sortoutChecks = document.createElement('div');
+      Object.assign(sortoutChecks.style,{
+        display:'grid',
+        justifyContent:'center',
+        gap:'6px',
+        margin:'2px 0'
+      });
+
+      const makeSortoutCheck = (id, value, labelText)=>{
+        const label = document.createElement('label');
+        label.setAttribute('for', id);
+        Object.assign(label.style,{
+          display:'inline-flex',
+          alignItems:'center',
+          gap:'8px',
+          cursor:'pointer',
+          userSelect:'none',
+          lineHeight:'1.5'
+        });
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.id = id;
+        cb.value = value;
+        cb.checked = false;
+
+        const text = document.createElement('span');
+        text.textContent = labelText;
+
+        label.append(cb, text);
+        return { label, cb };
+      };
+
+      const sortoutNecklace = makeSortoutCheck('dbe-check-Chest--sortout-necklace', 'necklace', 'ネックレス');
+      const sortoutWeapon   = makeSortoutCheck('dbe-check-Chest--sortout-weapon',   'weapon',   '武器');
+      const sortoutArmor    = makeSortoutCheck('dbe-check-Chest--sortout-armor',    'armor',    '防具');
+
+      sortoutChecks.append(
+        sortoutNecklace.label,
+        sortoutWeapon.label,
+        sortoutArmor.label
+      );
+
       const sortoutBtns = document.createElement('div');
       Object.assign(sortoutBtns.style,{
         display:'flex',
@@ -7083,38 +7150,50 @@
         flexWrap:'wrap'
       });
 
-      const btnSortWeaponArmor = document.createElement('button');
-      btnSortWeaponArmor.type = 'button';
-      btnSortWeaponArmor.id = 'dbe-btn-Chest--sortout-weapon-armor';
-      btnSortWeaponArmor.textContent = '武器防具を整理';
-      Object.assign(btnSortWeaponArmor.style,{
+      const btnSortItems = document.createElement('button');
+      btnSortItems.type = 'button';
+      btnSortItems.id = 'dbe-btn-Chest--sortout-items';
+      btnSortItems.textContent = 'アイテムを整理する';
+      Object.assign(btnSortItems.style,{
         borderRadius:'10px',
         fontSize:'0.95em',
         margin:'0.5em',
-        padding:'12px 8px',
-        cursor:'pointer'
-      });
-      btnSortWeaponArmor.addEventListener('click', ()=>{
-        dbeSortOutUnlockedBag('weaponArmor');
-      });
-
-      const btnSortNecklace = document.createElement('button');
-      btnSortNecklace.type = 'button';
-      btnSortNecklace.id = 'dbe-btn-Chest--sortout-necklace';
-      btnSortNecklace.textContent = 'ネックレスを整理';
-      Object.assign(btnSortNecklace.style,{
-        borderRadius:'10px',
-        fontSize:'0.95em',
-        margin:'0.5em',
-        padding:'12px 8px',
-        cursor:'pointer'
-      });
-      btnSortNecklace.addEventListener('click', ()=>{
-        dbeSortOutUnlockedBag('necklace');
+        padding:'12px 18px',
+        cursor:'not-allowed',
+        opacity:'0.55',
+        filter:'grayscale(1)'
       });
 
-      sortoutBtns.append(btnSortWeaponArmor, btnSortNecklace);
-      grp4.append(sortoutTitle, sortoutDesc, sortoutBtns);
+      const sortoutCheckboxes = [
+        sortoutNecklace.cb,
+        sortoutWeapon.cb,
+        sortoutArmor.cb
+      ];
+
+      const refreshSortoutButtonState = ()=>{
+        const enabled = sortoutCheckboxes.some(cb=>cb.checked);
+        btnSortItems.disabled = !enabled;
+        btnSortItems.style.cursor = enabled ? 'pointer' : 'not-allowed';
+        btnSortItems.style.opacity = enabled ? '1' : '0.55';
+        btnSortItems.style.filter = enabled ? '' : 'grayscale(1)';
+      };
+
+      sortoutCheckboxes.forEach(cb=>{
+        cb.addEventListener('change', refreshSortoutButtonState);
+      });
+
+      btnSortItems.addEventListener('click', ()=>{
+        const selectedKinds = sortoutCheckboxes
+          .filter(cb=>cb.checked)
+          .map(cb=>cb.value);
+        if (!selectedKinds.length) return;
+        dbeSortOutUnlockedBag(selectedKinds);
+      });
+
+      refreshSortoutButtonState();
+
+      sortoutBtns.append(btnSortItems);
+      grp4.append(sortoutTitle, sortoutDesc, sortoutGuide, sortoutChecks, sortoutBtns);
       wrap.appendChild(grp4);
 
       // ◇最下部：閉じる
@@ -8789,14 +8868,19 @@
         Array.from(table.tBodies[0].rows).forEach(tr=>{
 
           const a = tr.cells[iEqup]?.querySelector('a[href*="/equip/"]');
-          const id = a?.href?.match(/\/equip\/(\d+)/)?.[1];
+          // ロック/解錠セル（旧 href=/lock 形式／新 toggleLock(...) 形式の両対応）
+          const lockInfo = dbeChestGetLockInfoFromRow(tr, table);
+          const id = a?.href?.match(/\/equip\/(\d+)/)?.[1] || lockInfo.itemId;
           if (!id) return;
+
+          // アイテムバッグ整理では、ロック済み（[解錠] / /unlock/ID 実行行）を
+          // フィルタカード判定の前に除外し、不要な行解析・条件判定を避ける。
+          if (DBE_CHEST.backgroundBagTables && !lockInfo.isUnlocked) return;
+
           // ① onhold 付与済みは「保留」＝選別（ロック/分解）対象からスキップ
           if (onHoldId.has(id)) return;
           // ↓ ここを追加（preSetに無ければ「新規」）
           if (!preSet.has(id)) newIdsLoop.add(id);
-          // ロック/解錠セル（旧 href=/lock 形式／新 toggleLock(...) 形式の両対応）
-          const lockInfo = dbeChestGetLockInfoFromRow(tr, table);
           const isUnlocked = lockInfo.isUnlocked;
           // onlyNew=ON（既定）：既存は対象外（新規のみ評価）
           if (onlyNew && preSet.has(id)) return;
@@ -9279,7 +9363,7 @@
               if (pr.op==='未満' && !(n<th)) continue;
             }
           }
-
+          
           // 互換：旧仕様の Buff 個数（既存カード救済）
           if (r.buff && !r.buff.all){
             const n = Number(rowInfo.buffCnt)||0;
@@ -9453,7 +9537,11 @@
       // 送信済み fetch 群を並列で待ってから、従来どおり /bag 検証はキュー単位で1回だけ行う。
       const pending = [];
       for (const id of ids){
-        if (DBE_CHEST._userAbort || DBE_CHEST._serverError) return;
+        // 「中断する」は“次の宝箱を開かない”ための予約であり、
+        // 現在回のロック／分解キューは最後まで送信する。
+        // ここで _userAbort を見て return すると、未送信IDが残り、
+        // 後続の /bag 検証で「分解処理に異常」と誤判定される。
+        if (DBE_CHEST._serverError) return false;
         const timing = dbeReadChestActionTiming();
         await new Promise(resolve=>setTimeout(resolve, Math.max(0, Number(timing.waitMs) || 0)));
         try{
@@ -9495,6 +9583,7 @@
           new Promise(resolve=>setTimeout(resolve, settleMs))
         ]);
       }
+      return true;
     }
 
     async function dbeChestFetchBagDocForVerify(){
@@ -9509,6 +9598,33 @@
         console.error('[DBE] failed to fetch /bag for verify:', err);
         return null;
       }
+    }
+
+    function dbeNormalizeSortOutTargetKinds(targetKinds){
+      const src = Array.isArray(targetKinds) ? targetKinds : [targetKinds];
+      const allowed = ['necklace', 'weapon', 'armor'];
+      const seen = new Set();
+      const out = [];
+      src.forEach(kind=>{
+        const k = String(kind || '').trim();
+        if (!allowed.includes(k) || seen.has(k)) return;
+        seen.add(k);
+        out.push(k);
+      });
+      return out;
+    }
+
+    function dbeGetSortOutTargetLabel(targetKind){
+      const kinds = dbeNormalizeSortOutTargetKinds(targetKind);
+      if (!kinds.length) return '装備';
+
+      const label = {
+        necklace: 'ネックレス',
+        weapon:   '武器',
+        armor:    '防具'
+      };
+
+      return kinds.map(k=>label[k] || '装備').join('・');
     }
 
     function dbeEnsureSortOutBusyLayerStyle(){
@@ -9602,9 +9718,7 @@
 
         const title = layer.querySelector('.dbe-sortout-busy-title');
         if (title){
-          title.textContent = targetKind === 'necklace'
-            ? 'ネックレスを整理中です'
-            : '武器防具を整理中です';
+          title.textContent = dbeGetSortOutTargetLabel(targetKind) + 'を整理中です';
         }
 
         dbeBringDialogToFront(layer);
@@ -9664,9 +9778,7 @@
         });
 
         const msg = document.createElement('div');
-        msg.textContent = targetKind === 'necklace'
-          ? 'ネックレスを整理しました。'
-          : '武器防具を整理しました。';
+        msg.textContent = dbeGetSortOutTargetLabel(targetKind) + 'を整理しました。';
         Object.assign(msg.style,{
           textAlign:'center',
           whiteSpace:'pre-wrap',
@@ -9704,27 +9816,30 @@
         try{ setTimeout(()=>btnReload.focus(), 0); }catch(_){}
       }catch(err){
         console.error('[DBE] dbeShowSortOutFinishedDialog failed:', err);
-        alert(targetKind === 'necklace'
-          ? 'Finished:\nネックレスを整理しました。'
-          : 'Finished:\n武器防具を整理しました。'
-        );
+        alert('Finished:\n' + dbeGetSortOutTargetLabel(targetKind) + 'を整理しました。');
       }
     }
 
     function dbePrepareSortOutDoc(doc, targetKind){
       try{
         if (!doc) return null;
-        if (targetKind === 'necklace'){
-          doc.getElementById('weaponTable')?.remove();
-          doc.getElementById('armorTable')?.remove();
-        } else {
-          doc.getElementById('necklaceTable')?.remove();
-        }
+        const kinds = dbeNormalizeSortOutTargetKinds(targetKind);
+        const selected = new Set(kinds);
+
+        if (!selected.has('necklace')) doc.getElementById('necklaceTable')?.remove();
+        if (!selected.has('weapon'))   doc.getElementById('weaponTable')?.remove();
+        if (!selected.has('armor'))    doc.getElementById('armorTable')?.remove();
       }catch(_){}
       return doc;
     }
 
     async function dbeSortOutUnlockedBag(targetKind){
+      const targetKinds = dbeNormalizeSortOutTargetKinds(targetKind);
+      if (!targetKinds.length){
+        console.warn('[DBE] sortout target is empty');
+        return;
+      }
+
       if (DBE_CHEST.busy || DBE_CHEST._sortoutBusy){
         console.warn('[DBE] sortout already running');
         return;
@@ -9732,12 +9847,16 @@
 
       DBE_CHEST._sortoutBusy = true;
       DBE_CHEST.busy = true;
-      dbeShowSortOutBusyLayer(targetKind);
+      dbeShowSortOutBusyLayer(targetKinds);
       DBE_CHEST.qLock = [];
       DBE_CHEST.qRecycle = [];
       DBE_CHEST.qUnlock = [];
-      DBE_CHEST.stage = targetKind === 'necklace' ? 'sortout_necklace' : 'sortout_weapon_armor';
-      DBE_CHEST.type = targetKind === 'necklace' ? 'battle_normal' : 'normal';
+      DBE_CHEST.stage =
+        targetKinds.length === 1 && targetKinds[0] === 'necklace' ? 'sortout_necklace' :
+        targetKinds.length === 1 && targetKinds[0] === 'weapon'   ? 'sortout_weapon' :
+        targetKinds.length === 1 && targetKinds[0] === 'armor'    ? 'sortout_armor' :
+        'sortout_multi';
+      DBE_CHEST.type = (targetKinds.length === 1 && targetKinds[0] === 'necklace') ? 'battle_normal' : 'normal';
       DBE_CHEST.didWork = true;
       DBE_CHEST.onlyNew = false;
       DBE_CHEST.recycleUnlockedBulk = false;
@@ -9768,7 +9887,7 @@
           return;
         }
 
-        bagDoc = dbePrepareSortOutDoc(bagDoc, targetKind);
+        bagDoc = dbePrepareSortOutDoc(bagDoc, targetKinds);
 
         // buildLockQueuesAfterOpen() は渡された doc の中だけを走査する。
         // そのため /bag を背景取得した DOMParser 文書を渡し、実ページDOMは直接編集しない。
@@ -9781,7 +9900,7 @@
         if (!recycleOk) return;
 
         dbeHideSortOutBusyLayer();
-        dbeShowSortOutFinishedDialog(targetKind);
+        dbeShowSortOutFinishedDialog(targetKinds);
       }catch(err){
         console.error('[DBE] dbeSortOutUnlockedBag failed:', err);
         dbeChestShowQueueAbortDialog('アイテムバッグ整理処理に異常が発生したためプロセスを中断しました。');
@@ -9943,7 +10062,8 @@
 
       let remain = ids.slice();
       for (let attempt = 1; attempt <= 3; attempt++){
-        await dbeChestSendActionQueueOnce('lock', remain);
+        const sent = await dbeChestSendActionQueueOnce('lock', remain);
+        if (sent === false) return false;
 
         {
           const timing = dbeReadChestActionTiming();
@@ -9975,7 +10095,8 @@
 
       let remain = ids.slice();
       for (let attempt = 1; attempt <= 3; attempt++){
-        await dbeChestSendActionQueueOnce('recycle', remain);
+        const sent = await dbeChestSendActionQueueOnce('recycle', remain);
+        if (sent === false) return false;
 
         {
           const timing = dbeReadChestActionTiming();
@@ -10111,7 +10232,9 @@
 
       // onhold のロック/解錠運用は廃止。onhold 付与済みは常に「保留」扱いとし、ここでは何もしない。
       // ユーザーが「中断する」を押していたら、次の宝箱を開ける段階で停止する
-      // （= 現在ループのフィルタカード適用／ロック／分解は完了済みの想定）
+      // （= 現在ループのフィルタカード適用／ロック／分解は完了済み）
+      // ※ロック／分解キュー中は _userAbort を見て止めない。
+      //   途中停止すると未送信IDが残り、/bag 検証で分解異常扱いになるため。
       if (DBE_CHEST._userAbort){
         (window.DBE_finishChest ? window.DBE_finishChest() : finishChest());
         return;
@@ -15067,7 +15190,7 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
       const t = th.textContent.trim();
       if (colMap[t]) idxMap[t] = i;
     });
-
+    
     // 〓〓〓〓〓 名称ヘッダー（武器/防具）に 4段階サイクルソートをワイヤリング 〓〓〓〓〓
     wireNameColumnSort(table, id, idxMap, hdrs, headerRow);
 
@@ -15249,6 +15372,7 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
       // ラッパー（この中に「ボタン行」「アイテムIDフィルター行」「チェックボックス行」を縦に配置）
       const wrap = document.createElement('div');
       wrap.className = 'dbe-necklace-filter';
+      wrap.id = 'dbe-necklace-filter-ui';
       Object.assign(wrap.style, {
         display:'flex',
         flexDirection:'column',
@@ -15377,6 +15501,10 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
       table.insertAdjacentElement('beforebegin', wrap);
 
       function applyFilter(){
+        // フィルター実行時は、過去に記憶されたスクロール復帰先を必ず破棄する。
+        // ここではスクロール移動を一切行わない。
+        clearAnchorCellMemory();
+
         const act = chks.filter(c=>c.checked).map(c=>c.value);
         // アイテムIDのしきい値（入力値が空 or 数字でない場合はデフォルト値）
         const useIdFilter = !!(idChk && idChk.checked);
@@ -15413,7 +15541,7 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
       applyFilter();
         // フィルター後：保存済みのソート履歴（多段）を再適用
       dbeApplySortHistory(id);
-      scrollToAnchorCell();
+      clearAnchorCellMemory();
     }
 
 // 〓〓〓〓〓 weaponTable 固有 〓〓〓〓〓
@@ -15855,6 +15983,7 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
         ui.style.margin='0px';
         table.insertAdjacentElement('beforebegin',ui);
       }
+      ui.id = (id === 'weaponTable') ? 'dbe-weapon-filter-ui' : 'dbe-armor-filter-ui';
 
       async function dbeSoftReloadThisWeaponArmorTable(btn){
         let oldText = '';
@@ -16022,6 +16151,10 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
       }
       function applyColor(){ Array.from(table.tBodies[0].rows).forEach(r=>{ const v=r.cells[elemCol].textContent.replace(/[0-9]/g,'').trim()||'なし'; r.cells[elemCol].style.backgroundColor=elemColors[v]; }); }
       function applyFilter(){
+        // フィルター実行時は、過去に記憶されたスクロール復帰先を必ず破棄する。
+        // ここではスクロール移動を一切行わない。
+        clearAnchorCellMemory();
+
         const selectedRarities = Object.keys(elm).filter(rk=>elm[rk].checked);
         const selectedElements = Object.keys(rarObj).filter(el=>rarObj[el].checked);
         const pickedName = (table.dataset.dbeNamePick || '').trim();
@@ -16078,7 +16211,7 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
         applyColor();
         // フィルター後：保存済みのソート履歴（多段）を再適用
         dbeApplySortHistory(id);
-        scrollToAnchorCell();
+        clearAnchorCellMemory();
       }
 
       // 〓〓〓〓〓 名称列セルクリックで「同名のみ表示」フィルターを切替 〓〓〓〓〓
@@ -16205,7 +16338,7 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
         clearAnchorCellMemory();
       });
 
-      // --- ELEM列セルクリックによるフィルター→ソート→スクロール ---
+      // --- ELEM列セルクリックによるフィルター→ソート ---
       Array.from(table.tBodies[0].rows).forEach(row=>{
         const cell = row.cells[elemCol];
         cell.style.cursor = 'pointer';
@@ -16216,10 +16349,10 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
           const clicked = (cell.textContent.match(/[^\d]+$/)||['なし'])[0];
           // 対応するチェックボックスだけONに
           Object.keys(rarObj).forEach(el=> rarObj[el].checked = (el === clicked));
-          // フィルタ・色・ソート・スクロール
+          // フィルタ・色・ソート
         applyFilter();
         applyColor();
-        scrollToAnchorCell();
+        clearAnchorCellMemory();
         });
       });
 
@@ -16518,7 +16651,7 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
             applyFilter();
             // フィルター後：保存済みのソート履歴（多段）を再適用
             dbeApplySortHistory(id);
-            scrollToAnchorCell();
+            clearAnchorCellMemory();
           });
         });
       }
