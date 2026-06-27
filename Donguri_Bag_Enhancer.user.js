@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Donguri Bag Enhancer
 // @namespace    https://donguri.5ch.io/
-// @version      14.3.8.2
+// @version      14.3.9.0
 // @description  5ちゃんねる「どんぐりシステム」の「アイテムバッグ」ページ機能改良スクリプト。
 // @author       Author: 福呼び草 / Assistant: ChatGPT（OpenAI）
 // @contributor  Suggested by: 'ID:YTtKPa4Z0'
@@ -33,7 +33,7 @@
   // ============================================================
   // スクリプト自身のバージョン（About 表示用）
   // ============================================================
-  const DBE_VERSION    = '14.3.8.2';
+  const DBE_VERSION    = '14.3.9.0';
 
   // ============================================================
   // 現在のどんぐりドメイン
@@ -14760,26 +14760,75 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
   }
 
   // --- 一括分解送信の保留＆確認機能 ---
+  function dbeBulkRecycleRowIsUnlocked(row, lockIdx, recycleIdx){
+    const lockCell = (lockIdx >= 0) ? row.cells[lockIdx] : null;
+    const recycleCell = (recycleIdx >= 0) ? row.cells[recycleIdx] : null;
+
+    const lockText = String(lockCell?.textContent || '').replace(/\s+/g, '');
+    const lockLink = lockCell?.querySelector?.('a') || null;
+    const href = String(lockLink?.getAttribute?.('href') || '');
+    const onclick = String(lockLink?.getAttribute?.('onclick') || '');
+
+    // 旧仕様：href="/lock/ID" が見えている行は「現在は未ロック」
+    if (/\/lock\/\d+/.test(href) || /\/lock\/\d+/.test(onclick)) return true;
+
+    // 旧仕様：href="/unlock/ID" が見えている行は「現在はロック済み」
+    if (/\/unlock\/\d+/.test(href) || /\/unlock\/\d+/.test(onclick)) return false;
+
+    // 新仕様：href は javascript:void(0) になり、表示文字で現在状態を判定する
+    // [解錠] = クリックすると解錠する = 現在はロック済み
+    // [錠]   = クリックすると施錠する = 現在は未ロック
+    if (lockText.includes('解錠')) return false;
+    if (lockText.includes('錠')) return true;
+
+    // 補助判定：分解リンクが存在する行は未ロック、[X] のみならロック済み扱い
+    if (recycleCell?.querySelector?.('a[href*="/recycle/"]')) return true;
+    if (String(recycleCell?.textContent || '').replace(/\s+/g, '') === '[X]') return false;
+
+    return false;
+  }
+
+  function dbeBulkRecycleReadGradeAndRarity(nameCell){
+    const text = String(nameCell?.textContent || '');
+    const gradeMatch = text.match(/\[(Pt|Au|Ag|CuSn|Cu)\d+\]/);
+    const rarityMatch = text.match(/\[(UR|SSR|SR|R|N)\]/);
+    return {
+      grade: gradeMatch ? gradeMatch[1] : '',
+      rarity: rarityMatch ? rarityMatch[1] : ''
+    };
+  }
+
   function initBulkRecycle(){
-    const forms = document.querySelectorAll('form[action$="/recycleunlocked"][method="POST"]');
+    const forms = document.querySelectorAll('form[action$="/recycleunlocked"]');
     forms.forEach(form=>{
+
+      const method = String(form.getAttribute('method') || form.method || 'GET').toUpperCase();
+      if (method !== 'POST') return;
+
+      // patchBagFromDoc 後などに再実行されても submit ハンドラを二重配線しない
+      try{
+        if (form.dataset && form.dataset.dbeBulkRecycleInit === '1') return;
+        if (form.dataset) form.dataset.dbeBulkRecycleInit = '1';
+      }catch(_){}
+
       form.addEventListener('submit', async e=>{
         e.preventDefault();
         showOverlay('まとめて分解します…');
         // ユーザーがチェックしたグレード／レアリティを収集
         const selectedGrades    = Array.from(document.querySelectorAll('input[id^="alert-grade-"]:checked')).map(i=>i.value);
         const selectedRarities  = Array.from(document.querySelectorAll('input[id^="alert-rarity-"]:checked')).map(i=>i.value);
-              const foundTypes = new Set();
+        const foundTypes = new Set();
 
          // テーブルを順に調べて
         for (const id of tableIds){
           const table = document.getElementById(id);
           if (!table?.tHead) continue;
           const hdrs = table.tHead.rows[0].cells;
-          let lockIdx=-1,nameIdx=-1;
+          let lockIdx=-1,nameIdx=-1,recycleIdx=-1;
           for (let i=0;i<hdrs.length;i++){
             const t = hdrs[i].textContent.trim();
             if (t==='解')      lockIdx = i;
+            if (t==='分解')    recycleIdx = i;
             if (t==='ネックレス' && id==='necklaceTable') nameIdx = i;
             if (t==='武器'     && id==='weaponTable')     nameIdx = i;
             if (t==='防具'     && id==='armorTable')      nameIdx = i;
@@ -14788,15 +14837,16 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
 
           Array.from(table.tBodies[0].rows).forEach(row=>{
             // アンロック済みだけ対象
-            if (!row.cells[lockIdx].querySelector('a[href*="/lock/"]')) return;
-            const text = row.cells[nameIdx].textContent;
+            if (!dbeBulkRecycleRowIsUnlocked(row, lockIdx, recycleIdx)) return;
+
+            const meta = dbeBulkRecycleReadGradeAndRarity(row.cells[nameIdx]);
             // レアリティ
             selectedRarities.forEach(rk => {
-              if (text.includes(rk)) foundTypes.add(rk);
+              if (meta.rarity === rk) foundTypes.add(rk);
             });
             // グレード
             selectedGrades.forEach(gd => {
-              if (text.includes(gd)) foundTypes.add(gd);
+              if (meta.grade === gd) foundTypes.add(gd);
             });
           });
         }
@@ -14807,15 +14857,20 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
             .map(type => gradeNames[type] || type)
             .join(', ');
           const ok = await showConfirm(`分解するアイテムに ${labels} が含まれています。`);
-        if (!ok){
+          if (!ok){
             hideOverlay();
             return;
+          }
         }
-      }
 
-      // 実行
-      try {
-        await fetch(form.action,{method:'POST'});
+        // 実行
+        try {
+          await fetch(form.action,{
+            method:'POST',
+            credentials:'same-origin',
+            cache:'no-store',
+            redirect:'follow'
+          });
           location.reload();
         } catch{ hideOverlay(); }
       });
