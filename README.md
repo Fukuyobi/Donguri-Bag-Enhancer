@@ -19,7 +19,7 @@
 
 1. 「Tampermonkey」などのユーザースクリプト管理アドオンをブラウザにインストールします。
 2. スクリプトファイル「Donguri_Bag_Enhancer.user.js」をTampermonkeyに読み込ませます。
-3. https://donguri.5ch.net/bag にアクセスすると、自動的にスクリプトが適用されます。
+3. https://donguri.5ch.io/bag にアクセスすると、自動的にスクリプトが適用されます。
 
 ## 更新履歴
 
