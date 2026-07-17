@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Donguri Bag Enhancer
 // @namespace    https://donguri.5ch.io/
-// @version      14.4.4.0
+// @version      14.4.5.2
 // @description  5ちゃんねる「どんぐりシステム」の「アイテムバッグ」ページ機能改良スクリプト。
 // @author       Author: 福呼び草 / Assistant: ChatGPT（OpenAI）
 // @contributor  Suggested by: 'ID:YTtKPa4Z0'
@@ -33,7 +33,7 @@
   // ============================================================
   // スクリプト自身のバージョン（About 表示用）
   // ============================================================
-  const DBE_VERSION    = '14.4.4.0';
+  const DBE_VERSION    = '14.4.5.2';
 
   // ============================================================
   // 現在のどんぐりドメイン
@@ -529,7 +529,7 @@
     weaponTable:   { '武器':'wepClm-Name','装':'wepClm-Equp','解':'wepClm-Lock','ATK':'wepClm-Atk','SPD':'wepClm-Spd','CRIT':'wepClm-Crit','ELEM':'wepClm-Elem','MOD':'wepClm-Mod','マリモ':'wepClm-Mrim','分解':'wepClm-Rycl' },
     armorTable:    { '防具':'amrClm-Name','装':'amrClm-Equp','解':'amrClm-Lock','DEF':'amrClm-Def','WT.':'amrClm-Wgt','CRIT':'amrClm-Crit','ELEM':'amrClm-Elem','MOD':'amrClm-Mod','マリモ':'amrClm-Mrim','分解':'amrClm-Rycl' }
   };
-  const elemColors  = { '火':'#FFEEEE','氷':'#EEEEFF','雷':'#FFFFEE','風':'#EEFFEE','地':'#FFF0E0','水':'#EEFFFF','光':'#FFFFF0','闇':'#F0E0FF','なし':'#FFFFFF' };
+  const elemColors  = { '火':'#FFD6D6','氷':'#E6FAFF','雷':'#FFE98A','風':'#DDF4D2','地':'#E8D2B8','水':'#BFDFFF','光':'#FFFBE0','闇':'#E6D8F5','なし':'#FFFFFF' };
   const elemOrder   = { '火':0,'氷':1,'雷':2,'風':3,'地':4,'水':5,'光':6,'闇':7,'なし':8 };
   const rarityOrder = { 'UR':0,'SSR':1,'SR':2,'R':3,'N':4 };
 
