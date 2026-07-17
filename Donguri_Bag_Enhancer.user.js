@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Donguri Bag Enhancer
 // @namespace    https://donguri.5ch.io/
-// @version      14.3.9.0
+// @version      14.4.4.0
 // @description  5ちゃんねる「どんぐりシステム」の「アイテムバッグ」ページ機能改良スクリプト。
 // @author       Author: 福呼び草 / Assistant: ChatGPT（OpenAI）
 // @contributor  Suggested by: 'ID:YTtKPa4Z0'
@@ -33,7 +33,7 @@
   // ============================================================
   // スクリプト自身のバージョン（About 表示用）
   // ============================================================
-  const DBE_VERSION    = '14.3.9.0';
+  const DBE_VERSION    = '14.4.4.0';
 
   // ============================================================
   // 現在のどんぐりドメイン
@@ -139,6 +139,55 @@
       }
     };
   })();
+
+  // ============================================================
+  // アイテムバッグを開くドメインの統一設定
+  // - GMストレージを利用して donguri.world / donguri.5ch.io 間で共有する
+  // - 設定が有効な場合のみ /bag へのアクセスを選択ドメインへ統一する
+  // - location.replace() を使い、転送前URLをブラウザ履歴へ残さない
+  // ============================================================
+  const DBE_BAG_DOMAIN_FIXED_KEY =
+    'dbe-prm-panel0-check-fixed-bag-domain';
+  const DBE_BAG_DOMAIN_VALUE_KEY =
+    'dbe-prm-panel0-radio-bag-domain';
+
+  function dbeNormalizeBagDomain(value){
+    return value === 'donguri.5ch.io'
+      ? 'donguri.5ch.io'
+      : 'donguri.world';
+  }
+
+  function dbeApplyPreferredBagDomainRedirect(){
+    try{
+      if (location.pathname !== '/bag') return false;
+
+      const enabled =
+        dbeStorage.getItem(DBE_BAG_DOMAIN_FIXED_KEY) === 'true';
+      if (!enabled) return false;
+
+      const preferredDomain = dbeNormalizeBagDomain(
+        dbeStorage.getItem(DBE_BAG_DOMAIN_VALUE_KEY)
+      );
+
+      if (location.hostname === preferredDomain) return false;
+
+      const target = new URL(location.href);
+      target.protocol = 'https:';
+      target.hostname = preferredDomain;
+      target.port = '';
+
+      location.replace(target.href);
+      return true;
+    }catch(err){
+      console.warn('[DBE] preferred bag domain redirect failed:', err);
+      return false;
+    }
+  }
+
+  // /bag の転送が必要な場合、転送先であらためてDBEを起動する。
+  if (dbeApplyPreferredBagDomainRedirect()){
+    return;
+  }
 
   // ============================================================
   // 多重起動ガード（同一ページで DBE が複数注入される事故を防ぐ）
@@ -321,9 +370,64 @@
     }
   }
 
+  // ============================================================
+  // donguri.world トップページの「どんぐりナビ」に
+  // 「アイテムバッグ[レガシー]」リンクを追加
+  // - 現行の /inventory リンク直後へ追加する
+  // - 旧HTMLサンプルとの互換用に /bag も検索対象とする
+  // - 追加するリンク先は https://donguri.world/bag に固定する
+  // - 多重実行時も重複して追加しない
+  // ============================================================
+  function dbeInsertLegacyBagLinkOnWorldTop(){
+    try{
+      if (location.hostname !== 'donguri.world') return false;
+
+      const legacyHref = 'https://donguri.world/bag';
+      const legacyLinkId = 'dbe-world-legacy-bag-link';
+
+      // 多重実行・戻る復帰などによる重複追加を防止
+      if (document.getElementById(legacyLinkId)) return true;
+
+      // 「どんぐりナビ」と書かれた label を探し、
+      // その label が属するブロック内だけを検索対象にする。
+      const navLabel = Array.from(document.querySelectorAll('label'))
+        .find(label => (label.textContent || '').trim() === 'どんぐりナビ');
+      if (!navLabel) return false;
+
+      const navBlock = navLabel.closest('.stat-block') || navLabel.parentElement;
+      if (!navBlock) return false;
+
+      // 現行の /inventory を優先し、旧HTMLでは /bag をフォールバックにする。
+      const bagAnchor =
+        navBlock.querySelector('a[href="/inventory"]') ||
+        navBlock.querySelector('a[href="/bag"]');
+      if (!bagAnchor) return false;
+
+      const bagRow = bagAnchor.closest('div');
+      if (!bagRow || !bagRow.parentNode) return false;
+
+      const legacyRow = document.createElement('div');
+      const legacyAnchor = document.createElement('a');
+
+      legacyAnchor.id = legacyLinkId;
+      legacyAnchor.href = legacyHref;
+      legacyAnchor.textContent = 'アイテムバッグ [レガシー]';
+
+      legacyRow.appendChild(legacyAnchor);
+
+      // アイテムバッグ行と、その直後にある <hr> の間へ挿入する。
+      bagRow.insertAdjacentElement('afterend', legacyRow);
+      return true;
+    }catch(err){
+      console.warn('[DBE] failed to insert legacy bag link:', err);
+      return false;
+    }
+  }
+
   // トップページ判定（/ または空）
   if (location && (location.pathname === '/' || location.pathname === '')){
     dbeCaptureDonguriIdentityFromTop();
+    dbeInsertLegacyBagLinkOnWorldTop();
     return;
   }
 
@@ -352,6 +456,8 @@
     baseFontSize:      { id:'dbe-prm-panel0-fontsize',                  legacy:null,                       def:getDefaultBaseFontSize() },
     displayItemId:     { id:'dbe-prm-panel0-check-display-ItemID',      legacy:null,                       def:false                    },
     mobileLauncherPos: { id:'dbe-prm-panel0-radio-mobile-launcher-pos', legacy:null,                       def:'left-bottom'            },
+    fixedBagDomain:    { id:DBE_BAG_DOMAIN_FIXED_KEY,                   legacy:null,                       def:false                    },
+    bagDomain:         { id:DBE_BAG_DOMAIN_VALUE_KEY,                   legacy:null,                       def:'donguri.world'          },
     // トップページ取得値（localStorage 直読み用途にも使えるよう定義）
     donguriName:       { id:'donguri-name',                             legacy:null,                       def:''                       },
     donguriId:         { id:'donguri-id',                               legacy:null,                       def:''                       },
@@ -557,9 +663,15 @@
     ['石垣穿ちの杭槍',             { kana:'イシガキウガチノクイヤリ',         limited:true  }],
     ['砦吠えの煉瓦砲',             { kana:'トリデボエノレンガホウ',           limited:true  }],
     ['復興の石亀',                 { kana:'フッコウノイシガメ',               limited:true  }],
-    ['灰翼',                       { kana:'カイヨク',                         limited:true  }],
   // レジストリ（イベント開催中の限定武器）
-  //  ['灰翼',                       { kana:'カイヨク',                         limited:true, eventActive:true  }],
+    ['灰翼',                       { kana:'カイヨク',                         limited:true, eventActive:true  }],
+    ['麒麟',                       { kana:'キリン',                           limited:true, eventActive:true  }],
+    ['鎌鼬',                       { kana:'カマイタチ',                       limited:true, eventActive:true  }],
+    ['龍神',                       { kana:'リュウジン',                       limited:true, eventActive:true  }],
+    ['鵺',                         { kana:'ヌエ',                             limited:true, eventActive:true  }],
+    ['雷獣',                       { kana:'ライジュウ',                       limited:true, eventActive:true  }],
+    ['白面金毛九尾狐',             { kana:'ハクメンキンモウキュウビノキツネ', limited:true, eventActive:true  }],
+    ['八咫烏',                     { kana:'ヤタガラス',                       limited:true, eventActive:true  }],
   ]);
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -620,15 +732,15 @@
     ['命護りの春司衣',             { kana:'イノチマモリノハルツカサキヌ',     limited:true  }],
     ['不落城門の鉄岩鎧',           { kana:'フラクジョウモンノテツガンヨロイ', limited:true  }],
     ['昭和残影の作業衣',           { kana:'ショウワザンエイノサギョウイ',     limited:true  }],
+    ['火守殻',                     { kana:'ヒモリカク',                       limited:true  }],
+    ['地護殻',                     { kana:'チゴカク',                         limited:true  }],
+    ['風纏殻',                     { kana:'フウテンカク',                     limited:true  }],
+    ['雷嵐殻',                     { kana:'ライランカク',                     limited:true  }],
+    ['水鏡殻',                     { kana:'スイキョウカク',                   limited:true  }],
+    ['氷晶殻',                     { kana:'ヒョウショウカク',                 limited:true  }],
+    ['光輝殻',                     { kana:'コウキカク',                       limited:true  }],
+    ['虚牢殻',                     { kana:'キョロウカク',                     limited:true  }],
   // レジストリ（イベント開催中の限定防具）
-    ['火守殻',                     { kana:'ヒモリカク',                       limited:true, eventActive:true  }],
-    ['地護殻',                     { kana:'チゴカク',                         limited:true, eventActive:true  }],
-    ['風纏殻',                     { kana:'フウテンカク',                     limited:true, eventActive:true  }],
-    ['雷嵐殻',                     { kana:'ライランカク',                     limited:true, eventActive:true  }],
-    ['水鏡殻',                     { kana:'スイキョウカク',                   limited:true, eventActive:true  }],
-    ['氷晶殻',                     { kana:'ヒョウショウカク',                 limited:true, eventActive:true  }],
-    ['光輝殻',                     { kana:'コウキカク',                       limited:true, eventActive:true  }],
-    ['虚牢殻',                     { kana:'キョロウカク',                     limited:true, eventActive:true  }],
     ['代表ユニフォームメキシコ',                 { kana:'ダイヒョウユニフォームメキシコ',                   limited:true, eventActive:true  }],
     ['代表ユニフォームアメリカ',                 { kana:'ダイヒョウユニフォームアメリカ',                   limited:true, eventActive:true  }],
     ['代表ユニフォーム日本',                     { kana:'ダイヒョウユニフォームニッポン',                   limited:true, eventActive:true  }],
@@ -1366,6 +1478,16 @@
     // ------------------------------------------------------------
     const style = document.createElement('style');
       style.textContent = `
+      /* --- Settings モーダル内の共通小見出し --- */
+      .dbe-settings-subheading {
+        display: block;
+        margin: 10px 0 4px 0;
+        padding: 0;
+        font-size: 1.05em;
+        font-weight: bold;
+        line-height: 1.4;
+      }
+
       /* --- Pタグのマージンをクリア --- */
       p {
         margin-top:    unset;
@@ -2258,30 +2380,52 @@
     const spacer = ()=>{ const sp=document.createElement('div'); sp.style.height='0.5em'; return sp; };
 
     // --- 基準文字サイズ（ページ全体） ---
+    const fsTitle = document.createElement('div');
+    fsTitle.className = 'dbe-settings-subheading';
+    fsTitle.textContent = '基準文字サイズ';
+
     const fsRow = document.createElement('div');
-    fsRow.style.display='flex'; fsRow.style.gap='0'; fsRow.style.alignItems='center'; fsRow.style.margin='0 0 4px 0';
-    const fsLabel = document.createElement('span'); fsLabel.textContent='基準文字サイズ：';
+    fsRow.style.cssText = [
+      'display:flex',
+      'gap:12px',
+      'align-items:center',
+      'margin:0 0 4px 0',
+      'padding:0 10px',
+      'flex-wrap:wrap'
+    ].join(';');
+
     const fsName  = 'dbe-fontsize';
     const fsOptions = ['16px','14px','12px'];
-    const fsContainer = document.createElement('div'); fsContainer.style.display='flex'; fsContainer.style.gap='12px';
     const currentFS = readStr('baseFontSize');
+
     fsOptions.forEach(val=>{
-      const lab = document.createElement('label'); lab.style.display='flex'; lab.style.alignItems='center'; lab.style.gap='0px';
-      const r = document.createElement('input'); r.type='radio'; r.name=fsName; r.value=val; r.id=`dbe-prm-panel0-fontsize-${val}`;
-      r.checked = (currentFS===val);
+      const lab = document.createElement('label');
+      lab.style.cssText =
+        'display:flex;align-items:center;gap:0;white-space:nowrap;user-select:none;';
+
+      const r = document.createElement('input');
+      r.type = 'radio';
+      r.name = fsName;
+      r.value = val;
+      r.id = `dbe-prm-panel0-fontsize-${val}`;
+      r.checked = (currentFS === val);
       r.addEventListener('change', ()=>{
-        if (r.checked){ writeStr('baseFontSize', val); applyBaseFontSize(); }
+        if (r.checked){
+          writeStr('baseFontSize', val);
+          applyBaseFontSize();
+        }
       });
+
       lab.append(r, document.createTextNode(val));
-      fsContainer.appendChild(lab);
+      fsRow.appendChild(lab);
     });
-    fsRow.append(fsLabel, fsContainer);
-    secSettings.appendChild(fsRow);
+
+    secSettings.append(fsTitle, fsRow);
 
     // --- 装備テーブルのカスタマイズ ---
     const equipmentTableCustomTitle = document.createElement('div');
+    equipmentTableCustomTitle.className = 'dbe-settings-subheading';
     equipmentTableCustomTitle.textContent = '装備テーブルのカスタマイズ';
-    equipmentTableCustomTitle.style.cssText = 'margin:10px 0 4px 0;padding:0;font-size:1.05em;font-weight:bold';
 
     const equipmentTableCustomBox = document.createElement('div');
     equipmentTableCustomBox.id = 'dbe-prm-panel0-equipment-table-custom-box';
@@ -2615,8 +2759,8 @@
 
     // --- DBEランチャーボタン（携帯端末用）の配置設定 ---
     const mobileLauncherTitle = document.createElement('div');
+    mobileLauncherTitle.className = 'dbe-settings-subheading';
     mobileLauncherTitle.textContent = 'DBEランチャーボタン（携帯端末用）';
-    mobileLauncherTitle.style.cssText = 'margin:10px 0 4px 0;padding:0;font-size:1.05em;font-weight:bold';
 
     const mobileLauncherGrid = document.createElement('div');
     mobileLauncherGrid.id = 'dbe-prm-panel0-mobile-launcher-pos-grid';
@@ -2663,6 +2807,193 @@
     });
 
     secSettings.append(mobileLauncherTitle, mobileLauncherGrid);
+
+    // --- アイテムバッグを開くドメインの選択 ---
+    const bagDomainTitle = document.createElement('div');
+    bagDomainTitle.className = 'dbe-settings-subheading';
+    bagDomainTitle.textContent = 'ドメイン選択';
+
+    const bagDomainBox = document.createElement('div');
+    bagDomainBox.id = 'dbe-prm-panel0-bag-domain-box';
+    bagDomainBox.style.cssText = [
+      'display:flex',
+      'flex-direction:column',
+      'gap:6px',
+      'margin:0 0 6px 0',
+      'padding:8px 10px',
+      'border:1px solid #666',
+      'border-radius:8px',
+      'background-color:#FAFFFF',
+      'box-sizing:border-box',
+      'width:fit-content',
+      'max-width:100%'
+    ].join(';');
+
+    const fixedBagDomainLabel = document.createElement('label');
+    fixedBagDomainLabel.style.cssText = [
+      'display:flex',
+      'align-items:center',
+      'gap:8px',
+      'white-space:normal',
+      'user-select:none'
+    ].join(';');
+
+    const fixedBagDomainCk = document.createElement('input');
+    fixedBagDomainCk.type = 'checkbox';
+    fixedBagDomainCk.id = DBE_BAG_DOMAIN_FIXED_KEY;
+    fixedBagDomainCk.checked = readBool('fixedBagDomain');
+
+    fixedBagDomainLabel.append(
+      fixedBagDomainCk,
+      document.createTextNode('常に同じドメインでアイテムバッグを開く')
+    );
+
+    const bagDomainRadioRow = document.createElement('div');
+    bagDomainRadioRow.id = 'dbe-prm-panel0-bag-domain-radio-row';
+    bagDomainRadioRow.style.cssText = [
+      'display:flex',
+      'align-items:center',
+      'gap:20px',
+      'padding:0 0 0 24px',
+      'flex-wrap:wrap'
+    ].join(';');
+
+    const bagDomainName = 'dbe-bag-domain';
+    const bagDomainCurrent =
+      dbeNormalizeBagDomain(readStr('bagDomain'));
+    const bagDomainRadios = [];
+
+    [
+      { value:'donguri.world',   label:'donguri.world' },
+      { value:'donguri.5ch.io',  label:'donguri.5ch.io' }
+    ].forEach(def=>{
+      const lab = document.createElement('label');
+      lab.style.cssText = [
+        'display:flex',
+        'align-items:center',
+        'gap:4px',
+        'white-space:nowrap',
+        'user-select:none'
+      ].join(';');
+
+      const radio = document.createElement('input');
+      radio.type = 'radio';
+      radio.name = bagDomainName;
+      radio.value = def.value;
+      radio.id =
+        `dbe-prm-panel0-radio-bag-domain-${def.value.replace(/\./g, '-')}`;
+      radio.checked = (bagDomainCurrent === def.value);
+
+      bagDomainRadios.push(radio);
+      lab.append(radio, document.createTextNode(def.label));
+      bagDomainRadioRow.appendChild(lab);
+    });
+
+    const bagDomainApplyRow = document.createElement('div');
+    bagDomainApplyRow.id = 'dbe-prm-panel0-bag-domain-apply-row';
+    bagDomainApplyRow.style.cssText = [
+      'display:flex',
+      'justify-content:center',
+      'align-items:center',
+      'padding:2px 0 0 24px'
+    ].join(';');
+
+    const bagDomainApplyBtn = document.createElement('button');
+    bagDomainApplyBtn.type = 'button';
+    bagDomainApplyBtn.id = 'dbe-prm-panel0-button-apply-bag-domain';
+    bagDomainApplyBtn.textContent = '適用する';
+    bagDomainApplyBtn.style.cssText = [
+      'min-width:8em',
+      'padding:4px 14px',
+      'font-size:0.95em',
+      'text-align:center',
+      'cursor:pointer'
+    ].join(';');
+
+    bagDomainApplyRow.appendChild(bagDomainApplyBtn);
+
+    function updateBagDomainRadioState(){
+      const enabled = !!fixedBagDomainCk.checked;
+
+      // 有効時には必ずどちらか一方を選択する。
+      // DOM状態が壊れていた場合は、画面上の仮選択を donguri.world へ補正する。
+      // この段階では保存せず、「適用する」ボタンが押されたときだけ保存する。
+      if (
+        enabled &&
+        !bagDomainRadios.some(radio=>radio.checked)
+      ){
+        const worldRadio = bagDomainRadios.find(
+          radio=>radio.value === 'donguri.world'
+        );
+        if (worldRadio){
+          worldRadio.checked = true;
+        }
+      }
+
+      bagDomainRadios.forEach(radio=>{
+        radio.disabled = !enabled;
+      });
+      bagDomainApplyBtn.disabled = !enabled;
+
+      bagDomainRadioRow.style.opacity = enabled ? '1' : '0.45';
+      bagDomainRadioRow.style.color = enabled ? '' : '#777';
+      bagDomainRadioRow.style.cursor = enabled ? '' : 'not-allowed';
+
+      bagDomainApplyRow.style.opacity = enabled ? '1' : '0.45';
+      bagDomainApplyRow.style.color = enabled ? '' : '#777';
+
+      bagDomainApplyBtn.style.cursor =
+        enabled ? 'pointer' : 'not-allowed';
+    }
+
+    fixedBagDomainCk.addEventListener('change', ()=>{
+      writeBool('fixedBagDomain', fixedBagDomainCk.checked);
+      updateBagDomainRadioState();
+
+    });
+
+    bagDomainApplyBtn.addEventListener('click', ()=>{
+      if (!fixedBagDomainCk.checked) return;
+
+      let selectedRadio =
+        bagDomainRadios.find(radio=>radio.checked);
+
+      // 有効時は必ず一方を選択する。
+      // 万一選択が失われていた場合は donguri.world を選択して適用する。
+      if (!selectedRadio){
+        selectedRadio = bagDomainRadios.find(
+          radio=>radio.value === 'donguri.world'
+        ) || null;
+
+        if (selectedRadio){
+          selectedRadio.checked = true;
+        }
+      }
+
+      if (!selectedRadio) return;
+
+      const selectedDomain =
+        dbeNormalizeBagDomain(selectedRadio.value);
+
+      // ラジオボタンの設定は、このボタンが押された時点で初めて保存する。
+      writeStr('bagDomain', selectedDomain);
+
+      // 現在の /bag が選択したドメインと異なる場合は、そのドメインへ転送する。
+      dbeApplyPreferredBagDomainRedirect();
+    });
+
+    updateBagDomainRadioState();
+
+    bagDomainBox.append(
+      fixedBagDomainLabel,
+      bagDomainRadioRow,
+      bagDomainApplyRow
+    );
+
+    secSettings.append(
+      bagDomainTitle,
+      bagDomainBox
+    );
 
     // --- 分解アラート設定UI（Recycle セクションへ） ---
     const secRecycl_Button    = document.createElement('div');
@@ -9586,6 +9917,91 @@
       return true;
     }
 
+    // ============================================================
+    // インベントリ公式APIを利用した選択アイテム一括分解
+    // - 現在の実行ドメインにある inventory の「選択したアイテムを分解」と同じく、
+    //   POST /recycle へ { items:[数値ID...] } を JSON で送信する
+    // - donguri.world では donguri.world、donguri.5ch.io では donguri.5ch.io へ送信する
+    // - DBE_ORIGIN は location.origin のため、別ドメインへ交錯して送信しない
+    // - false を返した場合、呼び出し側で /recycle/{id} の個別送信へフォールバックする
+    // ============================================================
+    async function dbeChestSendRecycleQueueBulkOnce(ids){
+      const sourceIds = Array.isArray(ids) ? ids : [];
+
+      const numericalIds = [];
+      const seen = new Set();
+
+      sourceIds.forEach(rawId=>{
+        const text = String(rawId || '').trim();
+        if (!/^\d+$/.test(text)) return;
+
+        const id = Number(text);
+        if (!Number.isSafeInteger(id) || id <= 0 || seen.has(id)) return;
+
+        seen.add(id);
+        numericalIds.push(id);
+      });
+
+      if (!numericalIds.length){
+        return true;
+      }
+
+      try{
+        chestDiag(
+          'RECYCLE_BULK: POST /recycle',
+          'count=',
+          numericalIds.length,
+          'ids=',
+          numericalIds
+        );
+
+        const resp = await fetch(`${DBE_ORIGIN}/recycle`, {
+          method: 'POST',
+          credentials: 'same-origin',
+          cache: 'no-store',
+          redirect: 'follow',
+          headers: {
+            'Accept': 'application/json, text/plain, text/html, */*',
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: JSON.stringify({
+            items: numericalIds
+          })
+        });
+
+        let responseText = '';
+        try{
+          responseText = await resp.text();
+        }catch(_){}
+
+        if (!resp.ok){
+          console.warn(
+            '[DBE] bulk recycle API returned non-ok response; fallback to individual requests:',
+            resp.status,
+            responseText
+          );
+          return false;
+        }
+
+        chestDiag(
+          'RECYCLE_BULK: request accepted',
+          'status=',
+          resp.status,
+          'count=',
+          numericalIds.length
+        );
+
+        return true;
+      }catch(err){
+        console.warn(
+          '[DBE] bulk recycle API request failed; fallback to individual requests:',
+          err
+        );
+        return false;
+      }
+    }
+
     async function dbeChestFetchBagDocForVerify(){
       try{
         const html = await dbeChestFetchText('/bag');
@@ -10095,8 +10511,40 @@
 
       let remain = ids.slice();
       for (let attempt = 1; attempt <= 3; attempt++){
-        const sent = await dbeChestSendActionQueueOnce('recycle', remain);
-        if (sent === false) return false;
+        // v14.4.3.0:
+        // 現在の実行ドメインにある inventory の「選択したアイテムを分解」と同じ
+        // POST /recycle + JSON { items:[ID...] } を優先して使用する。
+        //
+        // donguri.world では donguri.world、donguri.5ch.io では donguri.5ch.io の
+        // /recycle へ送信し、両ドメインのリクエストを交錯させない。
+        //
+        // 一括APIがHTTPエラーまたは通信エラーになった場合は、
+        // その回の残存IDを従来どおり /recycle/{id} で個別送信する。
+        //
+        // 一括APIが成功応答を返しても、それだけでは処理完了とみなさず、
+        // 後続の /bag 検証で対象IDが本当に消えたことを確認する。
+        const bulkSent = await dbeChestSendRecycleQueueBulkOnce(remain);
+
+        if (!bulkSent){
+          chestDiag(
+            'RECYCLE_QUEUE: bulk request failed; use individual requests',
+            'attempt=',
+            attempt,
+            'count=',
+            remain.length
+          );
+
+          const individualSent = await dbeChestSendActionQueueOnce('recycle', remain);
+          if (individualSent === false) return false;
+        } else {
+          chestDiag(
+            'RECYCLE_QUEUE: bulk request sent',
+            'attempt=',
+            attempt,
+            'count=',
+            remain.length
+          );
+        }
 
         {
           const timing = dbeReadChestActionTiming();
@@ -10115,6 +10563,14 @@
           DBE_CHEST.qRecycle = [];
           return true;
         }
+
+        chestDiag(
+          'RECYCLE_QUEUE: items still remain after verification',
+          'attempt=',
+          attempt,
+          'remain=',
+          remain
+        );
       }
 
       dbeChestShowQueueAbortDialog('分解処理に異常が発生したためプロセスを中断しました。');
@@ -14710,6 +15166,52 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
       r.checked = (r.value === mobileLauncherPos);
     });
     dbeApplyMobileLauncherPosition(null, mobileLauncherPos);
+
+    // アイテムバッグを開くドメインの統一設定
+    const fixedBagDomain = readBool('fixedBagDomain');
+    const fixedBagDomainCk =
+      menu.querySelector(`#${DBE_BAG_DOMAIN_FIXED_KEY}`);
+    const bagDomain =
+      dbeNormalizeBagDomain(readStr('bagDomain'));
+    const bagDomainRadioRow =
+      menu.querySelector('#dbe-prm-panel0-bag-domain-radio-row');
+    const bagDomainApplyRow =
+      menu.querySelector('#dbe-prm-panel0-bag-domain-apply-row');
+    const bagDomainApplyBtn =
+      menu.querySelector('#dbe-prm-panel0-button-apply-bag-domain');
+    const bagDomainRadios =
+      Array.from(menu.querySelectorAll('input[name="dbe-bag-domain"]'));
+
+    if (fixedBagDomainCk){
+      fixedBagDomainCk.checked = fixedBagDomain;
+    }
+
+    bagDomainRadios.forEach(radio=>{
+      radio.checked = (radio.value === bagDomain);
+      radio.disabled = !fixedBagDomain;
+    });
+
+    if (bagDomainRadioRow){
+      bagDomainRadioRow.style.opacity =
+        fixedBagDomain ? '1' : '0.45';
+      bagDomainRadioRow.style.color =
+        fixedBagDomain ? '' : '#777';
+      bagDomainRadioRow.style.cursor =
+        fixedBagDomain ? '' : 'not-allowed';
+    }
+
+    if (bagDomainApplyRow){
+      bagDomainApplyRow.style.opacity =
+        fixedBagDomain ? '1' : '0.45';
+      bagDomainApplyRow.style.color =
+        fixedBagDomain ? '' : '#777';
+    }
+
+    if (bagDomainApplyBtn){
+      bagDomainApplyBtn.disabled = !fixedBagDomain;
+      bagDomainApplyBtn.style.cursor =
+        fixedBagDomain ? 'pointer' : 'not-allowed';
+    }
 
     // まきこみアラート（チェック状態を保存値に合わせ直す）
     menu.querySelectorAll('input[id^="alert-grade-"], input[id^="alert-rarity-"]').forEach(el=>{
