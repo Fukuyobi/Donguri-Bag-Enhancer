@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Donguri Bag Enhancer
 // @namespace    https://donguri.5ch.io/
-// @version      14.4.5.2
+// @version      14.5.0.1
 // @description  5ちゃんねる「どんぐりシステム」の「アイテムバッグ」ページ機能改良スクリプト。
 // @author       Author: 福呼び草 / Assistant: ChatGPT（OpenAI）
 // @contributor  Suggested by: 'ID:YTtKPa4Z0'
@@ -33,7 +33,7 @@
   // ============================================================
   // スクリプト自身のバージョン（About 表示用）
   // ============================================================
-  const DBE_VERSION    = '14.4.5.2';
+  const DBE_VERSION    = '14.5.0.1';
 
   // ============================================================
   // 現在のどんぐりドメイン
@@ -455,6 +455,7 @@
     hideAllBtn:        { id:'dbe-prm-panel0-check-hide-RyclUnLck',      legacy: HIDE_KEY,                  def:false                    },
     baseFontSize:      { id:'dbe-prm-panel0-fontsize',                  legacy:null,                       def:getDefaultBaseFontSize() },
     displayItemId:     { id:'dbe-prm-panel0-check-display-ItemID',      legacy:null,                       def:false                    },
+    displayOrigStat:   { id:'dbe-prm-panel0-check-display-OrigStat',    legacy:null,                       def:false                    },
     mobileLauncherPos: { id:'dbe-prm-panel0-radio-mobile-launcher-pos', legacy:null,                       def:'left-bottom'            },
     fixedBagDomain:    { id:DBE_BAG_DOMAIN_FIXED_KEY,                   legacy:null,                       def:false                    },
     bagDomain:         { id:DBE_BAG_DOMAIN_VALUE_KEY,                   legacy:null,                       def:'donguri.world'          },
@@ -526,8 +527,8 @@
   const labelMap    = { necklaceTable: '━━ ネックレス ━━', weaponTable: '━━ 武器 ━━', armorTable: '━━ 防具 ━━' };
   const columnIds   = {
     necklaceTable: { 'ネックレス':'necClm-Name','装':'necClm-Equp','解':'necClm-Lock','属性':'necClm-StEf','マリモ':'necClm-Mrim','分解':'necClm-Rycl','増減':'necClm-Dlta' },
-    weaponTable:   { '武器':'wepClm-Name','装':'wepClm-Equp','解':'wepClm-Lock','ATK':'wepClm-Atk','SPD':'wepClm-Spd','CRIT':'wepClm-Crit','ELEM':'wepClm-Elem','MOD':'wepClm-Mod','マリモ':'wepClm-Mrim','分解':'wepClm-Rycl' },
-    armorTable:    { '防具':'amrClm-Name','装':'amrClm-Equp','解':'amrClm-Lock','DEF':'amrClm-Def','WT.':'amrClm-Wgt','CRIT':'amrClm-Crit','ELEM':'amrClm-Elem','MOD':'amrClm-Mod','マリモ':'amrClm-Mrim','分解':'amrClm-Rycl' }
+    weaponTable:   { '武器':'wepClm-Name','装':'wepClm-Equp','解':'wepClm-Lock','ATK':'wepClm-Atk','SPD':'wepClm-Spd','CRIT':'wepClm-Crit','ELEM':'wepClm-Elem','初期値':'wepClm-OrigStat','MOD':'wepClm-Mod','マリモ':'wepClm-Mrim','分解':'wepClm-Rycl' },
+    armorTable:    { '防具':'amrClm-Name','装':'amrClm-Equp','解':'amrClm-Lock','DEF':'amrClm-Def','WT.':'amrClm-Wgt','CRIT':'amrClm-Crit','ELEM':'amrClm-Elem','初期値':'amrClm-OrigStat','MOD':'amrClm-Mod','マリモ':'amrClm-Mrim','分解':'amrClm-Rycl' }
   };
   const elemColors  = { '火':'#FFD6D6','氷':'#E6FAFF','雷':'#FFE98A','風':'#DDF4D2','地':'#E8D2B8','水':'#BFDFFF','光':'#FFFBE0','闇':'#E6D8F5','なし':'#FFFFFF' };
   const elemOrder   = { '火':0,'氷':1,'雷':2,'風':3,'地':4,'水':5,'光':6,'闇':7,'なし':8 };
@@ -2757,6 +2758,38 @@
     rowItemId.append(cbItemId, document.createTextNode('名称列と装備列の間にアイテムIDを表示する'));
     equipmentTableCustomBox.appendChild(rowItemId);
 
+    // 〓〓〓 ELEM列とMOD列の間に初期値ボタンを表示 〓〓〓
+    const cbOrigStat = document.createElement('input');
+    cbOrigStat.type = 'checkbox';
+    cbOrigStat.id = 'dbe-prm-panel0-check-display-OrigStat';
+    try {
+      cbOrigStat.checked = typeof readBool === 'function'
+        ? readBool('displayOrigStat')
+        : false;
+    } catch {
+      cbOrigStat.checked = false;
+    }
+
+    if (cbOrigStat.checked) toggleEquipOrigStatColumn(true);
+
+    cbOrigStat.addEventListener('change', ()=>{
+      const on = cbOrigStat.checked;
+      try {
+        if (typeof writeBool === 'function') writeBool('displayOrigStat', on);
+      } catch {}
+      toggleEquipOrigStatColumn(on);
+    });
+
+    const rowOrigStat = document.createElement('label');
+    rowOrigStat.style.display = 'flex';
+    rowOrigStat.style.gap = '8px';
+    rowOrigStat.style.alignItems = 'center';
+    rowOrigStat.append(
+      cbOrigStat,
+      document.createTextNode('ELEM列とMOD列の間に初期値ボタンを表示する')
+    );
+    equipmentTableCustomBox.appendChild(rowOrigStat);
+
     // --- DBEランチャーボタン（携帯端末用）の配置設定 ---
     const mobileLauncherTitle = document.createElement('div');
     mobileLauncherTitle.className = 'dbe-settings-subheading';
@@ -4763,6 +4796,7 @@
       });
     }catch(_){}
     try{ toggleItemIdColumn(readBool('displayItemId')); }catch(_){}
+    try{ toggleEquipOrigStatColumn(readBool('displayOrigStat')); }catch(_){}
     try{ applyCellColors(); }catch(_){}
     try{ syncMenuFromStorage(); }catch(_){}
     try{ ensureHideAllControlInRecycle(); }catch(_){}
@@ -14245,15 +14279,522 @@
     });
   }
 
+  // ============================================================
+  // 武器／防具「初期値」列
+  // - ELEM列とMOD列の間に「初期値」ボタンを追加する
+  // - 押下時に同一オリジンの最新 inventory.json を取得する
+  // - wid / aid が一致する装備の初期値（wo* / ao*）を表示する
+  // ============================================================
+  const DBE_ELEM_TYPE_NAMES = {
+    F:'火',
+    A:'風',
+    W:'水',
+    I:'氷',
+    E:'地',
+    LG:'雷',
+    D:'闇',
+    LI:'光',
+  };
 
+  function dbeGetEquipOrigStatColumnSpec(tableId){
+    if (tableId === 'weaponTable'){
+      return {
+        tableId,
+        itemKey:'wepClm-OrigStat',
+        elemKey:'wepClm-Elem',
+        modKey:'wepClm-Mod',
+        kind:'weapon',
+      };
+    }
+    if (tableId === 'armorTable'){
+      return {
+        tableId,
+        itemKey:'amrClm-OrigStat',
+        elemKey:'amrClm-Elem',
+        modKey:'amrClm-Mod',
+        kind:'armor',
+      };
+    }
+    return null;
+  }
 
+  function dbeExtractEquipItemIdFromRow(row){
+    try{
+      if (!row) return null;
 
+      // 仕様どおり、同一行の「装」列にある /equip/{ID} を最優先する。
+      const equipLink = Array.from(row.querySelectorAll('a[href]'))
+        .find(a => /\/equip\/\d+(?:[/?#]|$)/.test(String(a.getAttribute('href') || '')));
+      if (equipLink){
+        const m = String(equipLink.getAttribute('href') || '').match(/\/equip\/(\d+)/);
+        if (m) return m[1];
+      }
 
+      // 再構成後などの保険として、既存の共通抽出関数も利用する。
+      const table = row.closest('table');
+      const equpKey =
+        table?.id === 'weaponTable' ? 'wepClm-Equp' :
+        table?.id === 'armorTable'  ? 'amrClm-Equp' :
+        null;
+      if (table && equpKey){
+        const idx = getHeaderIndexByKey(table, equpKey);
+        if (idx >= 0 && row.cells?.[idx]){
+          return extractItemIdFromEqupCell(row.cells[idx]);
+        }
+      }
+    }catch(_){}
+    return null;
+  }
 
+  function dbeMakeEquipOrigStatButton(row, kind){
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'dbe-btn-equip-orig-stat';
+    button.textContent = '初期値';
 
+    const itemId = dbeExtractEquipItemIdFromRow(row);
+    if (itemId){
+      button.dataset.itemId = itemId;
+      button.dataset.kind = kind;
+      button.title = `アイテムID ${itemId} の初期値を表示`;
+    } else {
+      button.disabled = true;
+      button.title = 'この行からアイテムIDを取得できませんでした';
+    }
 
+    button.addEventListener('click', async ()=>{
+      const id = button.dataset.itemId || dbeExtractEquipItemIdFromRow(row);
+      if (!id) return;
 
+      const originalText = button.textContent;
+      button.disabled = true;
+      button.textContent = '取得中…';
 
+      try{
+        const url = `${DBE_ORIGIN}/inventory.json?t=${Date.now()}`;
+        const response = await fetch(url, {
+          method:'GET',
+          credentials:'same-origin',
+          cache:'no-store',
+          headers:{ Accept:'application/json' },
+        });
+        if (!response.ok){
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const inventory = await response.json();
+        const item = dbeFindEquipInInventory(inventory, id, kind);
+        if (!item){
+          throw new Error(`inventory.json 内にアイテムID ${id} が見つかりませんでした。`);
+        }
+
+        dbeShowEquipOrigStatDialog(item, kind);
+      }catch(err){
+        console.warn('[DBE] failed to load original equipment stats:', err);
+        dbeShowEquipOrigStatErrorDialog(
+          err && err.message
+            ? err.message
+            : '初期値の取得中にエラーが発生しました。'
+        );
+      }finally{
+        button.disabled = false;
+        button.textContent = originalText;
+      }
+    });
+
+    return button;
+  }
+
+  function dbeFindEquipInInventory(root, itemId, kind){
+    const idKey = kind === 'armor' ? 'aid' : 'wid';
+    const target = String(itemId);
+    const stack = [root];
+    const seen = new Set();
+
+    while (stack.length){
+      const node = stack.pop();
+      if (!node || typeof node !== 'object') continue;
+      if (seen.has(node)) continue;
+      seen.add(node);
+
+      if (
+        Object.prototype.hasOwnProperty.call(node, idKey) &&
+        String(node[idKey]) === target
+      ){
+        return node;
+      }
+
+      if (Array.isArray(node)){
+        for (let i = node.length - 1; i >= 0; i--){
+          stack.push(node[i]);
+        }
+      } else {
+        for (const value of Object.values(node)){
+          if (value && typeof value === 'object') stack.push(value);
+        }
+      }
+    }
+    return null;
+  }
+
+  function dbeFormatOrigStatValue(value, suffix = ''){
+    if (value === null || value === undefined || value === '') return '―';
+    const n = Number(value);
+    const shown = Number.isFinite(n) ? n.toLocaleString('ja-JP') : String(value);
+    return `${shown}${suffix}`;
+  }
+
+  function dbeFormatOrigStatMarimo(value){
+    if (value === null || value === undefined || value === '') return '―';
+
+    const n = Number(value);
+    if (!Number.isFinite(n)){
+      return `${String(value)} マ`;
+    }
+
+    // inventory.json の woval / aoval はバッグ表示値の1000倍で保持されているため、
+    // 下3桁を切り捨てて、アイテムバッグと同じマリモ単位で表示する。
+    const shown = Math.trunc(n / 1000);
+    return `${shown.toLocaleString('ja-JP')} マ`;
+  }
+
+  function dbeFormatOrigStatRange(range, minKey, maxKey){
+    if (!range || typeof range !== 'object') return '―';
+    const min = range[minKey];
+    const max = range[maxKey];
+    if (min === null || min === undefined || max === null || max === undefined){
+      return '―';
+    }
+    return `${dbeFormatOrigStatValue(min)}～${dbeFormatOrigStatValue(max)}`;
+  }
+
+  function dbeFormatOrigStatElement(element){
+    if (!element || typeof element !== 'object') return 'なし';
+    const value = element.v;
+    const type = String(element.t || '');
+    const typeName = DBE_ELEM_TYPE_NAMES[type] || type || '不明';
+    if (value === null || value === undefined || value === ''){
+      return typeName;
+    }
+    return `${dbeFormatOrigStatValue(value)}${typeName}`;
+  }
+
+  function dbeBuildEquipOrigStatView(item, kind){
+    if (kind === 'armor'){
+      return {
+        title:`${item.anic ?? '名称不明'}（${item.aid ?? 'ID不明'}）の初期値`,
+        headers:['DEF', 'WT.', 'CRIT', 'ELEM', 'マリモ'],
+        values:[
+          dbeFormatOrigStatRange(item.aohar, 'minde', 'maxde'),
+          dbeFormatOrigStatValue(item.aowei),
+          dbeFormatOrigStatValue(item.aocri, '%'),
+          dbeFormatOrigStatElement(item.aoele),
+          dbeFormatOrigStatMarimo(item.aoval),
+        ],
+      };
+    }
+
+    return {
+      title:`${item.wnic ?? '名称不明'}（${item.wid ?? 'ID不明'}）の初期値`,
+      headers:['ATK', 'SPD', 'CRIT', 'ELEM', 'マリモ'],
+      values:[
+        dbeFormatOrigStatRange(item.wodam, 'minda', 'maxda'),
+        dbeFormatOrigStatValue(item.wospe),
+        dbeFormatOrigStatValue(item.wocri, '%'),
+        dbeFormatOrigStatElement(item.woele),
+        dbeFormatOrigStatMarimo(item.woval),
+      ],
+    };
+  }
+
+  function dbeEnsureEquipOrigStatDialog(){
+    let wnd = document.getElementById('dbe-dialog-equip-orig-stat');
+    if (!wnd){
+      wnd = ensureWindowShell('dbe-dialog-equip-orig-stat');
+      wnd.style.width = 'min(96vw, 680px)';
+      wnd.style.maxWidth = '680px';
+    }
+
+    // 共通殻の右上「×」は使わず、中央の「閉じる」ボタンだけを表示する。
+    const shellClose = wnd.firstElementChild;
+    if (shellClose && shellClose.tagName === 'BUTTON'){
+      shellClose.style.display = 'none';
+      shellClose.disabled = true;
+    }
+    return wnd;
+  }
+
+  function dbeShowEquipOrigStatDialog(item, kind){
+    const wnd = dbeEnsureEquipOrigStatDialog();
+    Array.from(wnd.children).forEach((child, index)=>{
+      if (index > 0) child.remove();
+    });
+
+    const view = dbeBuildEquipOrigStatView(item, kind);
+    const wrap = document.createElement('div');
+    wrap.className = 'dbe-equip-orig-stat-dialog-body';
+
+    const title = document.createElement('div');
+    title.className = 'dbe-equip-orig-stat-dialog-title';
+    title.textContent = view.title;
+
+    const table = document.createElement('table');
+    table.className = 'dbe-equip-orig-stat-table';
+
+    const thead = document.createElement('thead');
+    const headRow = document.createElement('tr');
+    view.headers.forEach(label=>{
+      const th = document.createElement('th');
+      th.textContent = label;
+      headRow.appendChild(th);
+    });
+    thead.appendChild(headRow);
+
+    const tbody = document.createElement('tbody');
+    const valueRow = document.createElement('tr');
+    view.values.forEach(value=>{
+      const td = document.createElement('td');
+      td.textContent = value;
+      valueRow.appendChild(td);
+    });
+    tbody.appendChild(valueRow);
+    table.append(thead, tbody);
+
+    const closeRow = document.createElement('div');
+    closeRow.className = 'dbe-equip-orig-stat-close-row';
+    const closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.textContent = '閉じる';
+    closeButton.addEventListener('click', ()=>{
+      wnd.style.display = 'none';
+      if (wnd.dataset.dbeFronted === '1') delete wnd.dataset.dbeFronted;
+    });
+    closeRow.appendChild(closeButton);
+
+    wrap.append(title, table, closeRow);
+    wnd.appendChild(wrap);
+    wnd.style.display = 'block';
+    dbeBringDialogToFront(wnd);
+  }
+
+  function dbeShowEquipOrigStatErrorDialog(message){
+    const wnd = dbeEnsureEquipOrigStatDialog();
+    Array.from(wnd.children).forEach((child, index)=>{
+      if (index > 0) child.remove();
+    });
+
+    const wrap = document.createElement('div');
+    wrap.className = 'dbe-equip-orig-stat-dialog-body';
+
+    const title = document.createElement('div');
+    title.className = 'dbe-equip-orig-stat-dialog-title';
+    title.textContent = '初期値を取得できませんでした';
+
+    const messageBox = document.createElement('div');
+    messageBox.className = 'dbe-equip-orig-stat-error';
+    messageBox.textContent = String(message || '');
+
+    const closeRow = document.createElement('div');
+    closeRow.className = 'dbe-equip-orig-stat-close-row';
+    const closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.textContent = '閉じる';
+    closeButton.addEventListener('click', ()=>{
+      wnd.style.display = 'none';
+      if (wnd.dataset.dbeFronted === '1') delete wnd.dataset.dbeFronted;
+    });
+    closeRow.appendChild(closeButton);
+
+    wrap.append(title, messageBox, closeRow);
+    wnd.appendChild(wrap);
+    wnd.style.display = 'block';
+    dbeBringDialogToFront(wnd);
+  }
+
+  function dbeEnsureEquipOrigStatStyle(){
+    if (document.getElementById('dbe-style-equip-orig-stat')) return;
+
+    const style = document.createElement('style');
+    style.id = 'dbe-style-equip-orig-stat';
+    style.textContent = `
+      .dbe-btn-equip-orig-stat{
+        display:block;
+        margin:0 auto;
+        padding:0.2em 0.55em;
+        min-width:4.5em;
+        font-size:0.9em;
+        line-height:1.2;
+        white-space:nowrap;
+        cursor:pointer;
+      }
+      .dbe-btn-equip-orig-stat:disabled{
+        opacity:0.6;
+        cursor:wait;
+      }
+      #dbe-dialog-equip-orig-stat{
+        box-sizing:border-box;
+      }
+      #dbe-dialog-equip-orig-stat .dbe-equip-orig-stat-dialog-body{
+        display:grid;
+        gap:14px;
+        padding:1em;
+        color:#000;
+      }
+      #dbe-dialog-equip-orig-stat .dbe-equip-orig-stat-dialog-title{
+        font-size:1.05em;
+        font-weight:bold;
+        text-align:center;
+        overflow-wrap:anywhere;
+      }
+      #dbe-dialog-equip-orig-stat .dbe-equip-orig-stat-table{
+        width:100%;
+        margin:0 auto;
+        border-collapse:collapse;
+        table-layout:auto;
+      }
+      #dbe-dialog-equip-orig-stat .dbe-equip-orig-stat-table th,
+      #dbe-dialog-equip-orig-stat .dbe-equip-orig-stat-table td{
+        padding:0.5em 0.65em;
+        border:1px solid #666;
+        text-align:center;
+        white-space:nowrap;
+      }
+      #dbe-dialog-equip-orig-stat .dbe-equip-orig-stat-table th{
+        background:#F0F0F0;
+        color:#000;
+      }
+      #dbe-dialog-equip-orig-stat .dbe-equip-orig-stat-close-row{
+        display:flex;
+        justify-content:center;
+      }
+      #dbe-dialog-equip-orig-stat .dbe-equip-orig-stat-close-row button{
+        min-width:7em;
+        padding:0.4em 1.2em;
+        cursor:pointer;
+      }
+      #dbe-dialog-equip-orig-stat .dbe-equip-orig-stat-error{
+        line-height:1.5;
+        text-align:left;
+        overflow-wrap:anywhere;
+      }
+      @media (max-width:600px){
+        #dbe-dialog-equip-orig-stat .dbe-equip-orig-stat-dialog-body{
+          padding:0.75em 0.4em;
+        }
+        #dbe-dialog-equip-orig-stat .dbe-equip-orig-stat-table th,
+        #dbe-dialog-equip-orig-stat .dbe-equip-orig-stat-table td{
+          padding:0.4em 0.3em;
+          font-size:0.9em;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function dbeEnsureEquipOrigStatColumn(table, spec){
+    const thead = table.tHead || table.querySelector('thead');
+    const tbody = table.tBodies?.[0] || table.querySelector('tbody');
+    const headRow = thead?.rows?.[0];
+    if (!thead || !tbody || !headRow || !spec) return;
+
+    dbeEnsureEquipOrigStatStyle();
+
+    let insertAt = getHeaderIndexByKey(table, spec.itemKey);
+    if (insertAt === -1){
+      const elemIdx = getHeaderIndexByKey(table, spec.elemKey);
+      const modIdx = getHeaderIndexByKey(table, spec.modKey);
+      if (elemIdx < 0 || modIdx < 0) return;
+
+      insertAt = elemIdx + 1;
+      const th = createTh(spec.itemKey, '初期値');
+      th.style.textAlign = 'center';
+      th.style.backgroundColor = '#F0F0F0';
+      th.style.color = '#000';
+      th.style.cursor = 'default';
+      headRow.insertBefore(th, headRow.children[insertAt] || null);
+    }
+
+    Array.from(tbody.rows).forEach(row=>{
+      const current = row.children[insertAt];
+      if (
+        current &&
+        (
+          current.dataset?.colkey === spec.itemKey ||
+          current.classList?.contains(spec.itemKey)
+        )
+      ){
+        const button = current.querySelector('.dbe-btn-equip-orig-stat');
+        const itemId = dbeExtractEquipItemIdFromRow(row);
+        if (button && itemId){
+          button.dataset.itemId = itemId;
+          button.dataset.kind = spec.kind;
+          button.disabled = false;
+          button.title = `アイテムID ${itemId} の初期値を表示`;
+        }
+        return;
+      }
+
+      row.querySelectorAll(
+        `td.${spec.itemKey}, td[data-colkey="${spec.itemKey}"]`
+      ).forEach(cell=>cell.remove());
+
+      const td = document.createElement('td');
+      td.dataset.colkey = spec.itemKey;
+      td.classList.add(spec.itemKey);
+      td.style.textAlign = 'center';
+      td.appendChild(dbeMakeEquipOrigStatButton(row, spec.kind));
+      row.insertBefore(td, row.children[insertAt] || null);
+    });
+  }
+
+  function dbeRemoveEquipOrigStatColumn(table, spec){
+    const thead = table.tHead || table.querySelector('thead');
+    const tbody = table.tBodies?.[0] || table.querySelector('tbody');
+    const headRow = thead?.rows?.[0];
+    if (!thead || !tbody || !headRow || !spec) return;
+
+    const idx = getHeaderIndexByKey(table, spec.itemKey);
+    if (idx === -1) return;
+    const headerCellCountBeforeRemove = headRow.cells.length;
+
+    headRow.children[idx]?.remove();
+
+    Array.from(tbody.rows).forEach(row=>{
+      const cell = row.children[idx];
+      if (!cell) return;
+
+      const isOrigStatCell =
+        cell.dataset?.colkey === spec.itemKey ||
+        cell.classList?.contains(spec.itemKey);
+      const rowAligned = row.children.length === headerCellCountBeforeRemove;
+
+      if (isOrigStatCell || rowAligned) cell.remove();
+    });
+  }
+
+  function toggleEquipOrigStatColumn(enabled){
+    ['weaponTable', 'armorTable'].forEach(tableId=>{
+      const table = document.getElementById(tableId);
+      const spec = dbeGetEquipOrigStatColumnSpec(tableId);
+      if (!table || !spec) return;
+
+      const hasColumn = getHeaderIndexByKey(table, spec.itemKey) !== -1;
+      if (enabled && hasColumn){
+        dbeEnsureEquipOrigStatColumn(table, spec);
+        return;
+      }
+      if (!enabled && !hasColumn) return;
+
+      if (enabled) dbeEnsureEquipOrigStatColumn(table, spec);
+      else dbeRemoveEquipOrigStatColumn(table, spec);
+
+      try{
+        refreshSortingForTableId(tableId);
+      }catch(err){
+        console.warn('[DBE] refresh after original-stat column toggle failed:', err);
+      }
+    });
+  }
 
   // 〓〓〓 追加：アイテムID列の ON/OFF ▼ここから▼ 〓〓〓
   function toggleItemIdColumn(enabled){
@@ -14699,6 +15240,34 @@
     // ネックレス「増減」列は、ID列の同期後に、Settings の ON/OFF に合わせて再構成する。
     if (tableId === 'necklaceTable'){
       dbeEnsureNecklaceDeltaColumnFromSettings(table);
+    }
+
+    // 武器／防具「初期値」列は、Settings の保存値を優先して再構成する。
+    // ※フィルターUIの「再読込」では公式HTML由来の tbody だけが差し替わるため、
+    //   thead に「初期値」列が残っていても、新しい tbody には対応セルが存在しない。
+    //   ここで保存設定を読み直し、ELEM列とMOD列の間へ各行のボタンセルを復元する。
+    if (tableId === 'weaponTable' || tableId === 'armorTable'){
+      try{
+        const showOrigStat =
+          (typeof readBool === 'function')
+            ? readBool('displayOrigStat')
+            : false;
+        const spec = dbeGetEquipOrigStatColumnSpec(tableId);
+
+        if (spec){
+          if (showOrigStat){
+            dbeEnsureEquipOrigStatColumn(table, spec);
+          } else {
+            dbeRemoveEquipOrigStatColumn(table, spec);
+          }
+        }
+      }catch(err){
+        console.warn(
+          '[DBE] apply original-stat column setting after soft reload failed:',
+          tableId,
+          err
+        );
+      }
     }
 
     // tbody 差し替え・列追加/削除のあと、列クラスを現在の thead に合わせて再付与する。
@@ -15153,6 +15722,12 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
         el.style.display = hideAll ? 'none' : '';
       }
     });
+
+    // 武器／防具の初期値列
+    const showOrigStat = readBool('displayOrigStat');
+    const origStatCk = menu.querySelector('#dbe-prm-panel0-check-display-OrigStat');
+    if (origStatCk) origStatCk.checked = showOrigStat;
+    toggleEquipOrigStatColumn(showOrigStat);
 
     // アイテムID列の表示
     const showItemId = readBool('displayItemId');
