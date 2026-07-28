@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Donguri Bag Enhancer
 // @namespace    https://donguri.5ch.io/
-// @version      14.5.0.1
+// @version      14.6.5.1
 // @description  5ちゃんねる「どんぐりシステム」の「アイテムバッグ」ページ機能改良スクリプト。
 // @author       Author: 福呼び草 / Assistant: ChatGPT（OpenAI）
 // @contributor  Suggested by: 'ID:YTtKPa4Z0'
@@ -33,7 +33,7 @@
   // ============================================================
   // スクリプト自身のバージョン（About 表示用）
   // ============================================================
-  const DBE_VERSION    = '14.5.0.1';
+  const DBE_VERSION    = '14.6.5.1';
 
   // ============================================================
   // 現在のどんぐりドメイン
@@ -527,8 +527,8 @@
   const labelMap    = { necklaceTable: '━━ ネックレス ━━', weaponTable: '━━ 武器 ━━', armorTable: '━━ 防具 ━━' };
   const columnIds   = {
     necklaceTable: { 'ネックレス':'necClm-Name','装':'necClm-Equp','解':'necClm-Lock','属性':'necClm-StEf','マリモ':'necClm-Mrim','分解':'necClm-Rycl','増減':'necClm-Dlta' },
-    weaponTable:   { '武器':'wepClm-Name','装':'wepClm-Equp','解':'wepClm-Lock','ATK':'wepClm-Atk','SPD':'wepClm-Spd','CRIT':'wepClm-Crit','ELEM':'wepClm-Elem','初期値':'wepClm-OrigStat','MOD':'wepClm-Mod','マリモ':'wepClm-Mrim','分解':'wepClm-Rycl' },
-    armorTable:    { '防具':'amrClm-Name','装':'amrClm-Equp','解':'amrClm-Lock','DEF':'amrClm-Def','WT.':'amrClm-Wgt','CRIT':'amrClm-Crit','ELEM':'amrClm-Elem','初期値':'amrClm-OrigStat','MOD':'amrClm-Mod','マリモ':'amrClm-Mrim','分解':'amrClm-Rycl' }
+    weaponTable:   { '武器':'wepClm-Name','装':'wepClm-Equp','解':'wepClm-Lock','ATK':'wepClm-Atk','SPD':'wepClm-Spd','CRIT':'wepClm-Crit','ELEM':'wepClm-Elem','初期値':'wepClm-OrigStat','MOD':'wepClm-Mod','LV':'wepClm-Lv','マリモ':'wepClm-Mrim','分解':'wepClm-Rycl' },
+    armorTable:    { '防具':'amrClm-Name','装':'amrClm-Equp','解':'amrClm-Lock','DEF':'amrClm-Def','WT.':'amrClm-Wgt','CRIT':'amrClm-Crit','ELEM':'amrClm-Elem','初期値':'amrClm-OrigStat','MOD':'amrClm-Mod','LV':'amrClm-Lv','マリモ':'amrClm-Mrim','分解':'amrClm-Rycl' }
   };
   const elemColors  = { '火':'#FFD6D6','氷':'#E6FAFF','雷':'#FFE98A','風':'#DDF4D2','地':'#E8D2B8','水':'#BFDFFF','光':'#FFFBE0','闇':'#E6D8F5','なし':'#FFFFFF' };
   const elemOrder   = { '火':0,'氷':1,'雷':2,'風':3,'地':4,'水':5,'光':6,'闇':7,'なし':8 };
@@ -664,6 +664,8 @@
     ['石垣穿ちの杭槍',             { kana:'イシガキウガチノクイヤリ',         limited:true  }],
     ['砦吠えの煉瓦砲',             { kana:'トリデボエノレンガホウ',           limited:true  }],
     ['復興の石亀',                 { kana:'フッコウノイシガメ',               limited:true  }],
+    ['終幕の笛',                   { kana:'シュウマクノホイッスル',           limited:true  }],
+    ['得点王の黄金靴',             { kana:'トクテンオウノゴールデンブーツ',   limited:true  }],
   // レジストリ（イベント開催中の限定武器）
     ['灰翼',                       { kana:'カイヨク',                         limited:true, eventActive:true  }],
     ['麒麟',                       { kana:'キリン',                           limited:true, eventActive:true  }],
@@ -741,6 +743,7 @@
     ['氷晶殻',                     { kana:'ヒョウショウカク',                 limited:true  }],
     ['光輝殻',                     { kana:'コウキカク',                       limited:true  }],
     ['虚牢殻',                     { kana:'キョロウカク',                     limited:true  }],
+    ['世界舞台の外套',             { kana:'セカイブタイノマント',             limited:true  }],
   // レジストリ（イベント開催中の限定防具）
     ['代表ユニフォームメキシコ',                 { kana:'ダイヒョウユニフォームメキシコ',                   limited:true, eventActive:true  }],
     ['代表ユニフォームアメリカ',                 { kana:'ダイヒョウユニフォームアメリカ',                   limited:true, eventActive:true  }],
@@ -1239,6 +1242,237 @@
       dbeInitCraftForms();
     }
     return;
+  }
+
+  // ============================================================
+  // アイテムバッグ（/bag）：スロット追加
+  // - /addslots リンクのページ遷移を抑止し、fetch で応答テキストを取得する
+  // - 応答内容に応じたダイアログを表示する
+  // - 同一IDのダイアログを再利用し、連続追加時も重複表示しない
+  // ============================================================
+  if (location.pathname === '/bag') {
+    const DBE_ADD_SLOTS_DIALOG_ID = 'dbe-Dialog-AddSlotsResult';
+    let dbeAddSlotsRequestRunning = false;
+
+    function dbeNormalizeAddSlotsResponseText(rawText){
+      try{
+        const raw = String(rawText || '').trim();
+        if (!raw) return '';
+
+        let text = raw;
+        if (/<[a-z][\s\S]*>/i.test(raw)){
+          const doc = new DOMParser().parseFromString(raw, 'text/html');
+          text = (doc.body && doc.body.textContent ? doc.body.textContent : raw).trim();
+        }
+
+        return text
+          .replace(/\r/g, '')
+          .replace(/[ \t]+\n/g, '\n')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim()
+          .slice(0, 500);
+      }catch(_){
+        return String(rawText || '').trim().slice(0, 500);
+      }
+    }
+
+    function dbeCloseAddSlotsDialog(){
+      try{
+        const wnd = document.getElementById(DBE_ADD_SLOTS_DIALOG_ID);
+        if (wnd) wnd.style.display = 'none';
+      }catch(_){}
+    }
+
+    function dbeShowAddSlotsDialog(messageText){
+      try{
+        const message = String(messageText || '').trim() || '応答を取得できませんでした。';
+        const wnd = ensureWindowShell(DBE_ADD_SLOTS_DIALOG_ID);
+        wnd.classList.remove('dialogAlert', 'dialogAlertLite');
+        wnd.classList.add('dialogCommon');
+        Object.assign(wnd.style, {
+          borderRadius: '10px',
+          padding: '1em'
+        });
+
+        const shellCloseBtn = wnd.firstElementChild;
+        if (shellCloseBtn && shellCloseBtn.tagName === 'BUTTON') {
+          shellCloseBtn.style.display = 'none';
+          shellCloseBtn.disabled = true;
+        }
+
+        Array.from(wnd.children).forEach((ch, i)=>{
+          if (i > 0) ch.remove();
+        });
+
+        const wrap = document.createElement('div');
+        Object.assign(wrap.style, {
+          display: 'grid',
+          gap: '14px',
+          minWidth: 'min(84vw, 320px)',
+          maxWidth: '64ch',
+          padding: '0.25em 0.5em',
+          textAlign: 'center'
+        });
+
+        const line1 = document.createElement('div');
+        line1.textContent = message === '成功'
+          ? 'アイテムスロットの追加に成功しました。'
+          : message;
+        Object.assign(line1.style, {
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          lineHeight: '1.6',
+          fontSize: '1.05em'
+        });
+        wrap.appendChild(line1);
+
+        if (message === '成功') {
+          const addMoreBtn = document.createElement('button');
+          addMoreBtn.textContent = 'スロットをさらに追加する';
+          Object.assign(addMoreBtn.style, {
+            cursor: 'pointer',
+            padding: '6px 20px',
+            display: 'inline-block',
+            margin: '0 auto'
+          });
+          addMoreBtn.addEventListener('click', ()=>{
+            dbeRequestAddSlots(addMoreBtn);
+          });
+
+          const note = document.createElement('div');
+          note.textContent = '木材1000個 を消費して スロット10個 を追加します。';
+          Object.assign(note.style, {
+            lineHeight: '1.5',
+            fontSize: '0.95em'
+          });
+
+          const reloadBtn = document.createElement('button');
+          reloadBtn.textContent = 'ページを再読み込みする';
+          Object.assign(reloadBtn.style, {
+            cursor: 'pointer',
+            padding: '6px 20px',
+            display: 'inline-block',
+            margin: '0 auto'
+          });
+          reloadBtn.addEventListener('click', ()=>{
+            dbeCloseAddSlotsDialog();
+            window.location.href = DBE_ORIGIN + '/bag';
+          });
+
+          wrap.append(addMoreBtn, note, reloadBtn);
+        } else {
+          const closeBtn = document.createElement('button');
+          closeBtn.textContent = '閉じる';
+          Object.assign(closeBtn.style, {
+            cursor: 'pointer',
+            padding: '6px 20px',
+            display: 'inline-block',
+            margin: '0 auto'
+          });
+          closeBtn.addEventListener('click', dbeCloseAddSlotsDialog);
+          wrap.appendChild(closeBtn);
+        }
+
+        wnd.appendChild(wrap);
+        dbeBringDialogToFront(wnd);
+        wnd.style.display = 'block';
+
+        const firstButton = wrap.querySelector('button');
+        try{ if (firstButton) setTimeout(()=>firstButton.focus(), 0); }catch(_){}
+      }catch(err){
+        console.error('[DBE] dbeShowAddSlotsDialog error:', err);
+        alert(String(messageText || '').trim() || '応答を取得できませんでした。');
+      }
+    }
+
+    async function dbeRequestAddSlots(trigger){
+      if (dbeAddSlotsRequestRunning) return;
+      dbeAddSlotsRequestRunning = true;
+
+      const oldDisabled = trigger && 'disabled' in trigger ? !!trigger.disabled : false;
+      if (trigger && 'disabled' in trigger) trigger.disabled = true;
+
+      try{
+        const response = await fetch(DBE_ORIGIN + '/addslots', {
+          method: 'GET',
+          credentials: 'same-origin',
+          headers: {
+            'Accept': 'text/plain, text/html, */*'
+          }
+        });
+        const raw = await response.text();
+        const message = dbeNormalizeAddSlotsResponseText(raw) ||
+          `スロット追加リクエストに失敗しました。（HTTP ${response.status}）`;
+        dbeShowAddSlotsDialog(message);
+      }catch(err){
+        console.warn('[DBE] /addslots request failed:', err);
+        dbeShowAddSlotsDialog('通信に失敗しました。');
+      }finally{
+        dbeAddSlotsRequestRunning = false;
+        if (trigger && 'disabled' in trigger && trigger.isConnected) {
+          trigger.disabled = oldDisabled;
+        }
+      }
+    }
+
+    function dbeFindAddSlotsLinkFromEventTarget(target){
+      try{
+        const element = target instanceof Element
+          ? target
+          : target && target.parentElement;
+        if (!element) return null;
+
+        const link = element.closest('a[href]');
+        if (!link) return null;
+
+        const url = new URL(
+          link.getAttribute('href') || link.href || '',
+          location.href
+        );
+
+        if (url.origin !== location.origin) return null;
+        if (url.pathname !== '/addslots') return null;
+
+        return link;
+      }catch(_){
+        return null;
+      }
+    }
+
+    function dbeHandleAddSlotsLinkClick(ev){
+      try{
+        const link = dbeFindAddSlotsLinkFromEventTarget(ev.target);
+        if (!link) return;
+
+        ev.preventDefault();
+        ev.stopPropagation();
+        ev.stopImmediatePropagation();
+
+        dbeRequestAddSlots(link);
+      }catch(err){
+        console.warn('[DBE] /addslots click handler failed:', err);
+      }
+    }
+
+    function dbeInitAddSlotsLink(){
+      try{
+        if (document.documentElement.dataset.dbeAddSlotsDelegated === '1') {
+          return;
+        }
+
+        document.documentElement.dataset.dbeAddSlotsDelegated = '1';
+
+        document.addEventListener(
+          'click',
+          dbeHandleAddSlotsLinkClick,
+          true
+        );
+      }catch(err){
+        console.warn('[DBE] init /addslots link failed:', err);
+      }
+    }
+
+    dbeInitAddSlotsLink();
   }
 
   // ============================================================
@@ -9096,7 +9330,23 @@
             (window.DBE_RULES && Array.isArray(window.DBE_RULES[kind]) ? window.DBE_RULES[kind] :
             (Array.isArray(window._rulesData?.[kind]) ? window._rulesData[kind] : [])) || [];
 
-          const needRar  = rulesRaw.some(r => Array.isArray(r.rar)  ? r.rar.length>0  : !!r.rar);
+          const needRar  = rulesRaw.some(r => {
+            if (!r || typeof r !== 'object') return false;
+
+            // 現行形式は rarity、旧形式は rar。
+            // 保存済みの旧カードとの互換性を維持するため、両方を受理する。
+            const raw = r.rarity != null ? r.rarity : r.rar;
+
+            if (Array.isArray(raw)) {
+              return raw.some(v => /^(UR|SSR|SR|R|N)$/.test(String(v || '').trim()));
+            }
+
+            if (raw && typeof raw === 'object') {
+              return ['UR','SSR','SR','R','N'].some(key => !!raw[key]);
+            }
+
+            return /^(UR|SSR|SR|R|N)$/.test(String(raw || '').trim());
+          });
           const needElem = rulesRaw.some(r => Array.isArray(r.elem) ? r.elem.length>0 : !!r.elem);
           const needMrm  = rulesRaw.some(r => r.mrm && r.mrm.mode === 'spec');
           // 武器/防具の数値比較フラグ（SPD / WT.）
@@ -9250,9 +9500,33 @@
           // onlyNew=ON（既定）：既存は対象外（新規のみ評価）
           if (onlyNew && preSet.has(id)) return;
           // ルール評価：'lock'→ロックキュー、'del'→分解キュー、null→保留
-          // ★ rarity フォールバック強化：行全体からも抽出
-          const _rawName = iName>=0 ? (tr.cells[iName]?.textContent||'') : '';
-          const _rawRar  = iRar>=0  ? (tr.cells[iRar]?.textContent||'')  : '';
+          // ★ 名称・Rarity取得
+          // 公式HTMLでは名称セルが、
+          //   1つ目の span：アイテム名
+          //   2つ目の span：種類とRarity
+          // という構造になっているため、名称セル全体の textContent を
+          // 名前として扱わず、それぞれを個別に取得する。
+          const _nameCell = iName >= 0 ? tr.cells[iName] : null;
+          const _nameSpans = _nameCell
+            ? Array.from(_nameCell.querySelectorAll('span'))
+            : [];
+
+          const _rawName =
+            (_nameSpans[0]?.textContent || '').trim() ||
+            (_nameCell?.childNodes
+              ? Array.from(_nameCell.childNodes)
+                  .filter(node => node.nodeType === Node.TEXT_NODE)
+                  .map(node => node.textContent || '')
+                  .join(' ')
+                  .trim()
+              : '') ||
+            (_nameCell?.textContent || '');
+
+          const _rawRar =
+            (iRar >= 0 ? (tr.cells[iRar]?.textContent || '') : '') ||
+            (_nameSpans.slice(1).map(span => span.textContent || '').join(' ')) ||
+            (_nameCell?.textContent || '');
+
           const _rowText = tr.textContent || '';
           const _rarHit  = dbePickRarityFromText(_rawRar)
                           || dbePickRarityFromText(_rawName)
@@ -9374,12 +9648,16 @@
     // 〓〓〓 名前の正規化: 装飾（【武器】【防具】や [UR|SSR|SR|R|N]）を外し、全角/半角空白を圧縮 〓〓〓
     function normalizeItemName(raw){
       const s = String(raw || '');
-      return s
+      const normalized = s
         .replace(/【[^】]*】/g, '')       // 【武器】【防具】などを除去
         .replace(/\[(UR|SSR|SR|R|N)\]/g, '') // [UR][SSR] 等を除去
         .replace(/\s+/g, ' ')            // 半角空白の連続を1つに
         .replace(/[\u3000]+/g, ' ')      // 全角空白→半角1つ
         .trim();
+
+      // 武器・防具の末尾「*」はLEGACY世代を示すマーカーであり、
+      // フィルタカードの名称一致ではSYNERGYと同一アイテム名として扱う。
+      return dbeStripLegacyGenerationMark(normalized);
     }
 
     // 〓〓〓 エレメント名の正規化（表記ゆれ吸収） 〓〓〓
@@ -9572,7 +9850,13 @@
             }
 
             {
-              const rr = dbeNormalizeRarityRule(r.rarity);
+              // 現行形式 rarity を優先し、旧保存形式 rar も互換受理する。
+              const rawRarityRule =
+                r.rarity != null
+                  ? r.rarity
+                  : r.rar;
+
+              const rr = dbeNormalizeRarityRule(rawRarityRule);
               const active = !!rr.active;
               const matched = !active ? true : rr.list.includes(rowInfo.rar);
               rarityActive = active;
@@ -15074,7 +15358,14 @@
 
       // 3) ヘッダータイトル文字列から判定
       const txt = (th.textContent || '').trim();
-      return colMap[txt] || '';
+      const byText = colMap[txt] || '';
+      if (byText){
+        try{
+          th.classList.add(byText);
+          th.dataset.colkey = byText;
+        }catch(_){}
+      }
+      return byText;
     });
 
     Array.from(table.tBodies[0].rows).forEach(row=>{
@@ -15803,36 +16094,113 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
   // --- 確認ダイアログを出す ---
   function showConfirm(message){
     return new Promise(resolve => {
-      const existing = document.getElementById('donguriConfirmOverlay');
+      const overlayId = 'dbe-dialog-bulk-recycle-confirm-overlay';
+      const dialogId = 'dbe-dialog-bulk-recycle-confirm';
+
+      const existing = document.getElementById(overlayId);
       if (existing) existing.remove();
+
       const ov = document.createElement('div');
-      ov.id = 'donguriConfirmOverlay';
+      ov.id = overlayId;
+
+      const baseWindowZ = dbeGetWindowMaxZ();
+      window.__DBE_Z_DIALOG = (window.__DBE_Z_DIALOG || 0) + 2;
+      const confirmZ =
+        baseWindowZ + 2000 + window.__DBE_Z_DIALOG;
+
       Object.assign(ov.style, {
-        position:'fixed',top:0,left:0,width:'100%',height:'100%',
+        position:'fixed',
+        inset:'0',
+        width:'100%',
+        height:'100%',
         backgroundColor:'rgba(0,0,0,0.5)',
-        display:'flex',justifyContent:'center',alignItems:'center',zIndex:1001001
+        display:'flex',
+        justifyContent:'center',
+        alignItems:'center',
+        zIndex:String(confirmZ)
       });
+
       const box = document.createElement('div');
+      box.id = dialogId;
+      box.setAttribute('role', 'dialog');
+      box.setAttribute('aria-modal', 'true');
+
       Object.assign(box.style, {
-        backgroundColor:'#fff',padding:'20px',borderRadius:'8px',
-        border:'5px solid #FF6600',textAlign:'center',color:'#000',
-        maxWidth:'80%',fontSize:'1.1em'
+        backgroundColor:'#fff',
+        padding:'20px',
+        borderRadius:'8px',
+        border:'5px solid #FF6600',
+        textAlign:'center',
+        color:'#000',
+        maxWidth:'80%',
+        maxHeight:'90vh',
+        overflow:'auto',
+        fontSize:'1.1em',
+        boxSizing:'border-box'
       });
+
       // 第一段落を引数で受け取る
       const p1 = document.createElement('p');
+      p1.id = 'dbe-dialog-bulk-recycle-confirm-message';
       p1.textContent = message;
+
       const p2 = document.createElement('p');
       p2.textContent = 'このまま分解を行いますか？';
+
+      box.setAttribute(
+        'aria-labelledby',
+        p1.id
+      );
+
       box.append(p1,p2);
-      const btns = document.createElement('div'); btns.style.marginTop='16px';
-      const ok = document.createElement('button');   ok.textContent='分解する'; ok.style.margin='10px';
-      const no = document.createElement('button');   no.textContent='キャンセル'; no.style.margin='10px';
+
+      const btns = document.createElement('div');
+      btns.id = 'dbe-dialog-bulk-recycle-confirm-buttons';
+      btns.style.marginTop = '16px';
+
+      const ok = document.createElement('button');
+      ok.id = 'dbe-dialog-bulk-recycle-confirm-ok';
+      ok.type = 'button';
+      ok.textContent = '分解する';
+      ok.style.margin = '10px';
+
+      const no = document.createElement('button');
+      no.id = 'dbe-dialog-bulk-recycle-confirm-cancel';
+      no.type = 'button';
+      no.textContent = 'キャンセル';
+      no.style.margin = '10px';
+
       btns.append(ok,no);
       box.appendChild(btns);
       ov.appendChild(box);
       document.body.appendChild(ov);
-      ok.addEventListener('click', ()=>{ ov.remove(); resolve(true); });
-      no.addEventListener('click', ()=>{ ov.remove(); resolve(false); });
+
+      const finish = result => {
+        try{
+          ov.remove();
+        }catch(_){}
+        resolve(result);
+      };
+
+      ok.addEventListener('click', ()=>{
+        finish(true);
+      });
+
+      no.addEventListener('click', ()=>{
+        finish(false);
+      });
+
+      ov.addEventListener('keydown', event=>{
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        finish(false);
+      });
+
+      try{
+        setTimeout(()=>{
+          no.focus();
+        }, 0);
+      }catch(_){}
     });
   }
 
@@ -15840,6 +16208,29 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
   function dbeBulkRecycleRowIsUnlocked(row, lockIdx, recycleIdx){
     const lockCell = (lockIdx >= 0) ? row.cells[lockIdx] : null;
     const recycleCell = (recycleIdx >= 0) ? row.cells[recycleIdx] : null;
+
+    const recycleLink =
+      recycleCell?.querySelector?.('a[href*="/recycle/"]') || null;
+    const recycleText =
+      String(recycleCell?.textContent || '').replace(/\s+/g, '');
+
+    // /recycleunlocked の実際の処理対象と同じ状態を最優先で確認する。
+    //
+    // 公式ページでは、現在ロックされていない行の「分解」セルに /recycle/{ID} リンクが表示される。
+    // 一方、ロック済みの行では「分解」セルが [X] になる。
+    //
+    // 「解」セルと「分解」セルは公式 toggleLock() やDBEの部分更新で別々に書き換えられるため、
+    // 「解」セルの表示や状態属性が一時的に古く残っていても、実際に分解可能かどうかを示す「分解」セルを優先する。
+    if (recycleLink) return true;
+    if (recycleText === '[X]') return false;
+
+    // DBEが付与した状態属性も利用する。
+    // released = 現在未ロック、secured = 現在ロック済み。
+    try{
+      const state = dbeGetLockCellState(lockCell, { preferDom:true });
+      if (state === 'released') return true;
+      if (state === 'secured') return false;
+    }catch(_){}
 
     const lockText = String(lockCell?.textContent || '').replace(/\s+/g, '');
     const lockLink = lockCell?.querySelector?.('a') || null;
@@ -15858,10 +16249,6 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
     if (lockText.includes('解錠')) return false;
     if (lockText.includes('錠')) return true;
 
-    // 補助判定：分解リンクが存在する行は未ロック、[X] のみならロック済み扱い
-    if (recycleCell?.querySelector?.('a[href*="/recycle/"]')) return true;
-    if (String(recycleCell?.textContent || '').replace(/\s+/g, '') === '[X]') return false;
-
     return false;
   }
 
@@ -15873,6 +16260,24 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
       grade: gradeMatch ? gradeMatch[1] : '',
       rarity: rarityMatch ? rarityMatch[1] : ''
     };
+  }
+
+  function dbeBulkRecycleReadHeaderText(th){
+    if (!th) return '';
+
+    try{
+      const clone = th.cloneNode(true);
+
+      clone
+        .querySelectorAll(
+          '.sort-indicator, .sort-indicator-left, .sort-label'
+        )
+        .forEach(el=>el.remove());
+
+      return String(clone.textContent || '').trim();
+    }catch(_){
+      return String(th.textContent || '').trim();
+    }
   }
 
   function initBulkRecycle(){
@@ -15890,40 +16295,145 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
 
       form.addEventListener('submit', async e=>{
         e.preventDefault();
-        showOverlay('まとめて分解します…');
+
+        // 同一フォームからの多重送信を防止する。
+        if (
+          form.dataset &&
+          form.dataset.dbeBulkRecycleSubmitting === '1'
+        ){
+          return;
+        }
+
+        // 別の一括分解フォームから警告がすでに表示されている場合も、
+        // 新しい送信処理を開始しない。
+        if (
+          document.getElementById(
+            'dbe-dialog-bulk-recycle-confirm-overlay'
+          )
+        ){
+          return;
+        }
+
+        try{
+          if (form.dataset){
+            form.dataset.dbeBulkRecycleSubmitting = '1';
+          }
+        }catch(_){}
+
         // ユーザーがチェックしたグレード／レアリティを収集
-        const selectedGrades    = Array.from(document.querySelectorAll('input[id^="alert-grade-"]:checked')).map(i=>i.value);
-        const selectedRarities  = Array.from(document.querySelectorAll('input[id^="alert-rarity-"]:checked')).map(i=>i.value);
+        const selectedGrades = Array.from(
+          document.querySelectorAll(
+            'input[id^="alert-grade-"]:checked'
+          )
+        ).map(i=>i.value);
+
+        const selectedRarities = Array.from(
+          document.querySelectorAll(
+            'input[id^="alert-rarity-"]:checked'
+          )
+        ).map(i=>i.value);
+
         const foundTypes = new Set();
 
-         // テーブルを順に調べて
+        // テーブルを順に調べる
         for (const id of tableIds){
           const table = document.getElementById(id);
-          if (!table?.tHead) continue;
-          const hdrs = table.tHead.rows[0].cells;
-          let lockIdx=-1,nameIdx=-1,recycleIdx=-1;
-          for (let i=0;i<hdrs.length;i++){
-            const t = hdrs[i].textContent.trim();
-            if (t==='解')      lockIdx = i;
-            if (t==='分解')    recycleIdx = i;
-            if (t==='ネックレス' && id==='necklaceTable') nameIdx = i;
-            if (t==='武器'     && id==='weaponTable')     nameIdx = i;
-            if (t==='防具'     && id==='armorTable')      nameIdx = i;
+          if (
+            !table?.tHead ||
+            !table.tHead.rows.length ||
+            !table.tBodies.length
+          ){
+            continue;
           }
-          if (lockIdx<0||nameIdx<0) continue;
+
+
+          const hdrs = Array.from(
+            table.tHead.rows[0].cells
+          );
+
+          const colMap = columnIds[id] || {};
+          const nameLabel =
+            id === 'necklaceTable'
+              ? 'ネックレス'
+              : id === 'weaponTable'
+                ? '武器'
+                : id === 'armorTable'
+                  ? '防具'
+                  : '';
+
+          const findHeaderIndex = (label)=>{
+            const className = colMap[label] || '';
+
+            // DBEが付与した安定クラスを最優先で使用する。
+            if (className){
+              const classIndex = hdrs.findIndex(
+                th=>th.classList.contains(className)
+              );
+
+              if (classIndex >= 0){
+                return classIndex;
+              }
+            }
+
+            // 再構成直後など、まだクラスが無い場合のフォールバック。
+            // ソートインジケーターは除外して元の列名だけを読む。
+            return hdrs.findIndex(
+              th=>dbeBulkRecycleReadHeaderText(th) === label
+            );
+          };
+
+          const lockIdx = findHeaderIndex('解');
+          const recycleIdx = findHeaderIndex('分解');
+          const nameIdx = findHeaderIndex(nameLabel);
+
+          if (
+            lockIdx < 0 ||
+            recycleIdx < 0 ||
+            nameIdx < 0
+          ){
+            console.warn(
+              '[DBE] bulk recycle alert: required column was not found.',
+              {
+                tableId:id,
+                nameIdx,
+                lockIdx,
+                recycleIdx,
+                headers:hdrs.map(
+                  th=>dbeBulkRecycleReadHeaderText(th)
+                )
+              }
+            );
+            continue;
+          }
 
           Array.from(table.tBodies[0].rows).forEach(row=>{
             // アンロック済みだけ対象
-            if (!dbeBulkRecycleRowIsUnlocked(row, lockIdx, recycleIdx)) return;
+            if (
+              !dbeBulkRecycleRowIsUnlocked(
+                row,
+                lockIdx,
+                recycleIdx
+              )
+            ){
+              return;
+            }
 
-            const meta = dbeBulkRecycleReadGradeAndRarity(row.cells[nameIdx]);
+            const meta =
+              dbeBulkRecycleReadGradeAndRarity(
+                row.cells[nameIdx]
+              );
+
             // レアリティ
-            selectedRarities.forEach(rk => {
-              if (meta.rarity === rk) foundTypes.add(rk);
+            selectedRarities.forEach(rarity=>{
+              if (meta.rarity === rarity){
+                foundTypes.add(rarity);
+              }
             });
             // グレード
-            selectedGrades.forEach(gd => {
-              if (meta.grade === gd) foundTypes.add(gd);
+            selectedGrades.forEach(grade=>{
+              if (meta.grade === grade){
+                foundTypes.add(grade);
+              }
             });
           });
         }
@@ -15933,23 +16443,50 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
           const labels = Array.from(foundTypes)
             .map(type => gradeNames[type] || type)
             .join(', ');
-          const ok = await showConfirm(`分解するアイテムに ${labels} が含まれています。`);
+
+          const ok = await showConfirm(
+            `分解するアイテムに ${labels} が含まれています。`
+          );
+
           if (!ok){
-            hideOverlay();
+            try{
+              if (form.dataset){
+                delete form.dataset.dbeBulkRecycleSubmitting;
+              }
+            }catch(_){}
             return;
           }
         }
 
+        // 警告が不要、または警告で「分解する」が選択された後にだけ
+        // 処理中オーバーレイを表示する。
+        // 警告より先に表示すると、ダイアログの重なりや誤操作の原因になる。
+        showOverlay('まとめて分解します…');
+
         // 実行
-        try {
+        try{
           await fetch(form.action,{
             method:'POST',
             credentials:'same-origin',
             cache:'no-store',
             redirect:'follow'
           });
+
           location.reload();
-        } catch{ hideOverlay(); }
+        }catch(err){
+          console.error(
+            '[DBE] bulk recycle request failed:',
+            err
+          );
+
+          hideOverlay();
+
+          try{
+            if (form.dataset){
+              delete form.dataset.dbeBulkRecycleSubmitting;
+            }
+          }catch(_){}
+        }
       });
     });
   }
@@ -16314,8 +16851,21 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
       th.style.backgroundColor = '#F0F0F0';
       th.style.color           = '#000';
       th.style.cursor          = 'default';
+
+      // 公式HTMLのソート処理は列番号を固定値で保持している。
+      // DBEが「初期値」列や「増減」列を追加すると列番号が変わるため、
+      // DBE管理下では公式のインラインソートを解除し、
+      // 以下で設定するDBE独自ソートだけを使用する。
+      try{
+        th.removeAttribute('onclick');
+        th.onclick = null;
+      }catch(_){}
+
       const cls = colMap[th.textContent.trim()];
-      if (cls) th.classList.add(cls);
+      if (cls){
+        th.classList.add(cls);
+        th.dataset.colkey = cls;
+      }
     });
     const idxMap = {};
     hdrs.forEach((th,i)=>{
@@ -16817,6 +17367,64 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
       });
     }
 
+    // 〓〓〓〓〓 武器／防具共通：LV列（単独ソート）＋インジケーター 〓〓〓〓〓
+    if (id === 'weaponTable' || id === 'armorTable') {
+      const lvIdx = idxMap['LV'];
+      const lvTh = Number.isInteger(lvIdx)
+        ? headerRow.cells[lvIdx]
+        : null;
+
+      if (lvTh) {
+        // ソート状態: true=逆順（大→小）、false=正順（小→大）
+        let lvDesc = true;
+        lvTh.style.cursor = 'pointer';
+
+        const getLvValue = row => {
+          const cell = row?.cells?.[lvIdx];
+          if (!cell) return 0;
+
+          const raw = String(cell.textContent || '')
+            .replace(/,/g, '')
+            .trim();
+          const match = raw.match(/-?\d+(?:\.\d+)?/);
+          if (!match) return 0;
+
+          const value = Number(match[0]);
+          return Number.isFinite(value) ? value : 0;
+        };
+
+        const sortByLv = desc => {
+          const tbody = table.tBodies?.[0];
+          if (!tbody) return;
+
+          const rows = Array.from(tbody.rows);
+          rows.sort((a, b) => {
+            const aLv = getLvValue(a);
+            const bLv = getLvValue(b);
+            return desc ? (bLv - aLv) : (aLv - bLv);
+          });
+
+          rows.forEach(row => tbody.appendChild(row));
+          updateSortIndicator(lvTh, desc ? '⬆' : '⬇', 'right');
+        };
+
+        lvTh.addEventListener('click', () => {
+          headerRow
+            .querySelectorAll('.sort-indicator, .sort-indicator-left')
+            .forEach(el => el.remove());
+
+          const appliedDesc = lvDesc;
+          sortByLv(appliedDesc);
+
+          // フィルター実行後や「再読込」後にも同じ並び順を再適用する。
+          dbeRememberSort(id, () => sortByLv(appliedDesc), 'LV');
+
+          lvDesc = !lvDesc;
+          clearAnchorCellMemory();
+        });
+      }
+    }
+
     // 〓〓〓〓〓 武器固有：MOD列（単独ソート）＋インジケーター 〓〓〓〓〓
     if (id === 'weaponTable') {
       const modIdx  = idxMap['MOD'];
@@ -16846,7 +17454,7 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
         sortByMod(appliedDesc);
 
         // フィルター後の再適用用として lastSortMap に登録
-        ByMod(appliedDesc);
+        dbeRememberSort(id, () => sortByMod(appliedDesc), 'MOD');
 
         // 次回クリックは反転
         modDesc = !modDesc;
