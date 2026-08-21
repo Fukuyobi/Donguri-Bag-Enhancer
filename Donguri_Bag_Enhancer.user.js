@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Donguri Bag Enhancer
 // @namespace    https://donguri.5ch.io/
-// @version      14.6.5.1
+// @version      14.6.7.0
 // @description  5ちゃんねる「どんぐりシステム」の「アイテムバッグ」ページ機能改良スクリプト。
 // @author       Author: 福呼び草 / Assistant: ChatGPT（OpenAI）
 // @contributor  Suggested by: 'ID:YTtKPa4Z0'
@@ -33,7 +33,7 @@
   // ============================================================
   // スクリプト自身のバージョン（About 表示用）
   // ============================================================
-  const DBE_VERSION    = '14.6.5.1';
+  const DBE_VERSION    = '14.6.7.0';
 
   // ============================================================
   // 現在のどんぐりドメイン
@@ -666,15 +666,28 @@
     ['復興の石亀',                 { kana:'フッコウノイシガメ',               limited:true  }],
     ['終幕の笛',                   { kana:'シュウマクノホイッスル',           limited:true  }],
     ['得点王の黄金靴',             { kana:'トクテンオウノゴールデンブーツ',   limited:true  }],
+    ['灰翼',                       { kana:'カイヨク',                         limited:true  }],
+    ['麒麟',                       { kana:'キリン',                           limited:true  }],
+    ['鎌鼬',                       { kana:'カマイタチ',                       limited:true  }],
+    ['龍神',                       { kana:'リュウジン',                       limited:true  }],
+    ['鵺',                         { kana:'ヌエ',                             limited:true  }],
+    ['雷獣',                       { kana:'ライジュウ',                       limited:true  }],
+    ['白面金毛九尾狐',             { kana:'ハクメンキンモウキュウビノキツネ', limited:true  }],
+    ['八咫烏',                     { kana:'ヤタガラス',                       limited:true  }],
   // レジストリ（イベント開催中の限定武器）
-    ['灰翼',                       { kana:'カイヨク',                         limited:true, eventActive:true  }],
-    ['麒麟',                       { kana:'キリン',                           limited:true, eventActive:true  }],
-    ['鎌鼬',                       { kana:'カマイタチ',                       limited:true, eventActive:true  }],
-    ['龍神',                       { kana:'リュウジン',                       limited:true, eventActive:true  }],
-    ['鵺',                         { kana:'ヌエ',                             limited:true, eventActive:true  }],
-    ['雷獣',                       { kana:'ライジュウ',                       limited:true, eventActive:true  }],
-    ['白面金毛九尾狐',             { kana:'ハクメンキンモウキュウビノキツネ', limited:true, eventActive:true  }],
-    ['八咫烏',                     { kana:'ヤタガラス',                       limited:true, eventActive:true  }],
+    ['アリエスのリボン槍',         { kana:'アリエスノリボンヤリ',             limited:true, eventActive:true  }],
+    ['タウラスの鈴槌',             { kana:'タウラスノスズツチ',               limited:true, eventActive:true  }],
+    ['ジェミニの双星杖',           { kana:'ジェミニノソウセイツエ',           limited:true, eventActive:true  }],
+    ['キャンサーの泡杖',           { kana:'キャンサーノアワツエ',             limited:true, eventActive:true  }],
+    ['レオの陽光剣',               { kana:'レオノヨウコウケン',               limited:true, eventActive:true  }],
+    ['ヴァルゴの花杖',             { kana:'ヴァルゴノハナツエ',               limited:true, eventActive:true  }],
+    ['リブラの天秤弓',             { kana:'リブラノテンビンキュウ',           limited:true, eventActive:true  }],
+    ['スコーピオの星槍',           { kana:'スコーピオノセイソウ',             limited:true, eventActive:true  }],
+    ['サジタリウスの彗星弓',       { kana:'サジタリウスノスイセイユミ',       limited:true, eventActive:true  }],
+    ['カプリコーンの錨斧',         { kana:'カプリコーンノイカリオノ',         limited:true, eventActive:true  }],
+    ['アクエリアスの星注ぎ杖',     { kana:'アクエリアスノホシソソギツエ',     limited:true, eventActive:true  }],
+    ['パイシーズの双短剣',         { kana:'パイシーズノソウタンンケン',       limited:true, eventActive:true  }],
+    ['アクエリアスの星注ぎ杖',     { kana:'アクエリアスノホシソソギツエ',     limited:true, eventActive:true  }],
   ]);
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -735,6 +748,55 @@
     ['命護りの春司衣',             { kana:'イノチマモリノハルツカサキヌ',     limited:true  }],
     ['不落城門の鉄岩鎧',           { kana:'フラクジョウモンノテツガンヨロイ', limited:true  }],
     ['昭和残影の作業衣',           { kana:'ショウワザンエイノサギョウイ',     limited:true  }],
+    ['代表ユニフォームメキシコ',                 { kana:'ダイヒョウユニフォームメキシコ',                   limited:true  }],
+    ['代表ユニフォームアメリカ',                 { kana:'ダイヒョウユニフォームアメリカ',                   limited:true  }],
+    ['代表ユニフォーム日本',                     { kana:'ダイヒョウユニフォームニッポン',                   limited:true  }],
+    ['代表ユニフォームニュージーランド',         { kana:'ダイヒョウユニフォームニュージーランド',           limited:true  }],
+    ['代表ユニフォームオーストラリア',           { kana:'ダイヒョウユニフォームオーストラリア',             limited:true  }],
+    ['代表ユニフォームイラク',                   { kana:'ダイヒョウユニフォームイラク',                     limited:true  }],
+    ['代表ユニフォームイラン',                   { kana:'ダイヒョウユニフォームイラン',                     limited:true  }],
+    ['代表ユニフォームヨルダン',                 { kana:'ダイヒョウユニフォームヨルダン',                   limited:true  }],
+    ['代表ユニフォーム韓国',                     { kana:'ダイヒョウユニフォームカンコク',                   limited:true  }],
+    ['代表ユニフォームカタール',                 { kana:'ダイヒョウユニフォームカタール',                   limited:true  }],
+    ['代表ユニフォームサウジアラビア',           { kana:'ダイヒョウユニフォームサウジアラビア',             limited:true  }],
+    ['代表ユニフォームウズベキスタン',           { kana:'ダイヒョウユニフォームウズベキスタン',             limited:true  }],
+    ['代表ユニフォームアルジェリア',             { kana:'ダイヒョウユニフォームアルジェリア',               limited:true  }],
+    ['代表ユニフォームカーボベルデ',             { kana:'ダイヒョウユニフォームカーボベルデ',               limited:true  }],
+    ['代表ユニフォームコンゴ民主共和国',         { kana:'ダイヒョウユニフォームコンゴミンシュキョウワコク', limited:true  }],
+    ['代表ユニフォームコートジボワール',         { kana:'ダイヒョウユニフォームコートジボワール',           limited:true  }],
+    ['代表ユニフォームエジプト',                 { kana:'ダイヒョウユニフォームエジプト',                   limited:true  }],
+    ['代表ユニフォームガーナ',                   { kana:'ダイヒョウユニフォームガーナ',                     limited:true  }],
+    ['代表ユニフォームモロッコ',                 { kana:'ダイヒョウユニフォームモロッコ',                   limited:true  }],
+    ['代表ユニフォームセネガル',                 { kana:'ダイヒョウユニフォームセネガル',                   limited:true  }],
+    ['代表ユニフォーム南アフリカ',               { kana:'ダイヒョウユニフォームミナミアフリカ',             limited:true  }],
+    ['代表ユニフォームチュニジア',               { kana:'ダイヒョウユニフォームチュニジア',                 limited:true  }],
+    ['代表ユニフォームキュラソー',               { kana:'ダイヒョウユニフォームキュラソー',                 limited:true  }],
+    ['代表ユニフォームハイチ',                   { kana:'ダイヒョウユニフォームハイチ',                     limited:true  }],
+    ['代表ユニフォームパナマ',                   { kana:'ダイヒョウユニフォームパナマ',                     limited:true  }],
+    ['代表ユニフォームアルゼンチン',             { kana:'ダイヒョウユニフォームアルゼンチン',               limited:true  }],
+    ['代表ユニフォームブラジル',                 { kana:'ダイヒョウユニフォームブラジル',                   limited:true  }],
+    ['代表ユニフォームコロンビア',               { kana:'ダイヒョウユニフォームコロンビア',                 limited:true  }],
+    ['代表ユニフォームエクアドル',               { kana:'ダイヒョウユニフォームエクアドル',                 limited:true  }],
+    ['代表ユニフォームパラグアイ',               { kana:'ダイヒョウユニフォームパラグアイ',                 limited:true  }],
+    ['代表ユニフォームウルグアイ',               { kana:'ダイヒョウユニフォームウルグアイ',                 limited:true  }],
+    ['代表ユニフォームオーストリア',             { kana:'ダイヒョウユニフォームオーストリア',               limited:true  }],
+    ['代表ユニフォームベルギー',                 { kana:'ダイヒョウユニフォームベルギー',                   limited:true  }],
+    ['代表ユニフォームボスニア・ヘルツェゴビナ', { kana:'ダイヒョウユニフォームボスニア・ヘルツェゴビナ',   limited:true  }],
+    ['代表ユニフォームクロアチア',               { kana:'ダイヒョウユニフォームクロアチア',                 limited:true  }],
+    ['代表ユニフォームチェコ',                   { kana:'ダイヒョウユニフォームチェコ',                     limited:true  }],
+    ['代表ユニフォームイングランド',             { kana:'ダイヒョウユニフォームイングランド',               limited:true  }],
+    ['代表ユニフォームフランス',                 { kana:'ダイヒョウユニフォームフランス',                   limited:true  }],
+    ['代表ユニフォームドイツ',                   { kana:'ダイヒョウユニフォームドイツ',                     limited:true  }],
+    ['代表ユニフォームオランダ',                 { kana:'ダイヒョウユニフォームオランダ',                   limited:true  }],
+    ['代表ユニフォームノルウェー',               { kana:'ダイヒョウユニフォームノルウェー',                 limited:true  }],
+    ['代表ユニフォームポルトガル',               { kana:'ダイヒョウユニフォームポルトガル',                 limited:true  }],
+    ['代表ユニフォームスコットランド',           { kana:'ダイヒョウユニフォームスコットランド',             limited:true  }],
+    ['代表ユニフォームスペイン',                 { kana:'ダイヒョウユニフォームスペイン',                   limited:true  }],
+    ['代表ユニフォームスウェーデン',             { kana:'ダイヒョウユニフォームスウェーデン',               limited:true  }],
+    ['代表ユニフォームスイス',                   { kana:'ダイヒョウユニフォームスイス',                     limited:true  }],
+    ['代表ユニフォームトルコ',                   { kana:'ダイヒョウユニフォームトルコ',                     limited:true  }],
+    ['代表ユニフォームカナダ',                   { kana:'ダイヒョウユニフォームカナダ',                     limited:true  }],
+    ['世界舞台の外套',                           { kana:'セカイブタイノマント',                             limited:true  }],
     ['火守殻',                     { kana:'ヒモリカク',                       limited:true  }],
     ['地護殻',                     { kana:'チゴカク',                         limited:true  }],
     ['風纏殻',                     { kana:'フウテンカク',                     limited:true  }],
@@ -743,56 +805,19 @@
     ['氷晶殻',                     { kana:'ヒョウショウカク',                 limited:true  }],
     ['光輝殻',                     { kana:'コウキカク',                       limited:true  }],
     ['虚牢殻',                     { kana:'キョロウカク',                     limited:true  }],
-    ['世界舞台の外套',             { kana:'セカイブタイノマント',             limited:true  }],
   // レジストリ（イベント開催中の限定防具）
-    ['代表ユニフォームメキシコ',                 { kana:'ダイヒョウユニフォームメキシコ',                   limited:true, eventActive:true  }],
-    ['代表ユニフォームアメリカ',                 { kana:'ダイヒョウユニフォームアメリカ',                   limited:true, eventActive:true  }],
-    ['代表ユニフォーム日本',                     { kana:'ダイヒョウユニフォームニッポン',                   limited:true, eventActive:true  }],
-    ['代表ユニフォームニュージーランド',         { kana:'ダイヒョウユニフォームニュージーランド',           limited:true, eventActive:true  }],
-    ['代表ユニフォームオーストラリア',           { kana:'ダイヒョウユニフォームオーストラリア',             limited:true, eventActive:true  }],
-    ['代表ユニフォームイラク',                   { kana:'ダイヒョウユニフォームイラク',                     limited:true, eventActive:true  }],
-    ['代表ユニフォームイラン',                   { kana:'ダイヒョウユニフォームイラン',                     limited:true, eventActive:true  }],
-    ['代表ユニフォームヨルダン',                 { kana:'ダイヒョウユニフォームヨルダン',                   limited:true, eventActive:true  }],
-    ['代表ユニフォーム韓国',                     { kana:'ダイヒョウユニフォームカンコク',                   limited:true, eventActive:true  }],
-    ['代表ユニフォームカタール',                 { kana:'ダイヒョウユニフォームカタール',                   limited:true, eventActive:true  }],
-    ['代表ユニフォームサウジアラビア',           { kana:'ダイヒョウユニフォームサウジアラビア',             limited:true, eventActive:true  }],
-    ['代表ユニフォームウズベキスタン',           { kana:'ダイヒョウユニフォームウズベキスタン',             limited:true, eventActive:true  }],
-    ['代表ユニフォームアルジェリア',             { kana:'ダイヒョウユニフォームアルジェリア',               limited:true, eventActive:true  }],
-    ['代表ユニフォームカーボベルデ',             { kana:'ダイヒョウユニフォームカーボベルデ',               limited:true, eventActive:true  }],
-    ['代表ユニフォームコンゴ民主共和国',         { kana:'ダイヒョウユニフォームコンゴミンシュキョウワコク', limited:true, eventActive:true  }],
-    ['代表ユニフォームコートジボワール',         { kana:'ダイヒョウユニフォームコートジボワール',           limited:true, eventActive:true  }],
-    ['代表ユニフォームエジプト',                 { kana:'ダイヒョウユニフォームエジプト',                   limited:true, eventActive:true  }],
-    ['代表ユニフォームガーナ',                   { kana:'ダイヒョウユニフォームガーナ',                     limited:true, eventActive:true  }],
-    ['代表ユニフォームモロッコ',                 { kana:'ダイヒョウユニフォームモロッコ',                   limited:true, eventActive:true  }],
-    ['代表ユニフォームセネガル',                 { kana:'ダイヒョウユニフォームセネガル',                   limited:true, eventActive:true  }],
-    ['代表ユニフォーム南アフリカ',               { kana:'ダイヒョウユニフォームミナミアフリカ',             limited:true, eventActive:true  }],
-    ['代表ユニフォームチュニジア',               { kana:'ダイヒョウユニフォームチュニジア',                 limited:true, eventActive:true  }],
-    ['代表ユニフォームキュラソー',               { kana:'ダイヒョウユニフォームキュラソー',                 limited:true, eventActive:true  }],
-    ['代表ユニフォームハイチ',                   { kana:'ダイヒョウユニフォームハイチ',                     limited:true, eventActive:true  }],
-    ['代表ユニフォームパナマ',                   { kana:'ダイヒョウユニフォームパナマ',                     limited:true, eventActive:true  }],
-    ['代表ユニフォームアルゼンチン',             { kana:'ダイヒョウユニフォームアルゼンチン',               limited:true, eventActive:true  }],
-    ['代表ユニフォームブラジル',                 { kana:'ダイヒョウユニフォームブラジル',                   limited:true, eventActive:true  }],
-    ['代表ユニフォームコロンビア',               { kana:'ダイヒョウユニフォームコロンビア',                 limited:true, eventActive:true  }],
-    ['代表ユニフォームエクアドル',               { kana:'ダイヒョウユニフォームエクアドル',                 limited:true, eventActive:true  }],
-    ['代表ユニフォームパラグアイ',               { kana:'ダイヒョウユニフォームパラグアイ',                 limited:true, eventActive:true  }],
-    ['代表ユニフォームウルグアイ',               { kana:'ダイヒョウユニフォームウルグアイ',                 limited:true, eventActive:true  }],
-    ['代表ユニフォームオーストリア',             { kana:'ダイヒョウユニフォームオーストリア',               limited:true, eventActive:true  }],
-    ['代表ユニフォームベルギー',                 { kana:'ダイヒョウユニフォームベルギー',                   limited:true, eventActive:true  }],
-    ['代表ユニフォームボスニア・ヘルツェゴビナ', { kana:'ダイヒョウユニフォームボスニア・ヘルツェゴビナ',   limited:true, eventActive:true  }],
-    ['代表ユニフォームクロアチア',               { kana:'ダイヒョウユニフォームクロアチア',                 limited:true, eventActive:true  }],
-    ['代表ユニフォームチェコ',                   { kana:'ダイヒョウユニフォームチェコ',                     limited:true, eventActive:true  }],
-    ['代表ユニフォームイングランド',             { kana:'ダイヒョウユニフォームイングランド',               limited:true, eventActive:true  }],
-    ['代表ユニフォームフランス',                 { kana:'ダイヒョウユニフォームフランス',                   limited:true, eventActive:true  }],
-    ['代表ユニフォームドイツ',                   { kana:'ダイヒョウユニフォームドイツ',                     limited:true, eventActive:true  }],
-    ['代表ユニフォームオランダ',                 { kana:'ダイヒョウユニフォームオランダ',                   limited:true, eventActive:true  }],
-    ['代表ユニフォームノルウェー',               { kana:'ダイヒョウユニフォームノルウェー',                 limited:true, eventActive:true  }],
-    ['代表ユニフォームポルトガル',               { kana:'ダイヒョウユニフォームポルトガル',                 limited:true, eventActive:true  }],
-    ['代表ユニフォームスコットランド',           { kana:'ダイヒョウユニフォームスコットランド',             limited:true, eventActive:true  }],
-    ['代表ユニフォームスペイン',                 { kana:'ダイヒョウユニフォームスペイン',                   limited:true, eventActive:true  }],
-    ['代表ユニフォームスウェーデン',             { kana:'ダイヒョウユニフォームスウェーデン',               limited:true, eventActive:true  }],
-    ['代表ユニフォームスイス',                   { kana:'ダイヒョウユニフォームスイス',                     limited:true, eventActive:true  }],
-    ['代表ユニフォームトルコ',                   { kana:'ダイヒョウユニフォームトルコ',                     limited:true, eventActive:true  }],
-    ['代表ユニフォームカナダ',                   { kana:'ダイヒョウユニフォームカナダ',                     limited:true, eventActive:true  }],
+    ['月ねずみのポケット胴衣',     { kana:'ツキネズミノポケットドウイ',       limited:true, eventActive:true  }],
+    ['もち牛の前掛け鎧',           { kana:'モチウシノマエカケヨロイ',         limited:true, eventActive:true  }],
+    ['鈴虎の羽織',                 { kana:'スズトラノハオリ',                 limited:true, eventActive:true  }],
+    ['月うさぎのケープ',           { kana:'ツキウサギノケープ',               limited:true, eventActive:true  }],
+    ['ちび龍の雲衣',               { kana:'チビリュウノクモギヌ',             limited:true, eventActive:true  }],
+    ['リボン蛇の着物',             { kana:'リボンヘビノキモノ',               limited:true, eventActive:true  }],
+    ['星仔馬の乗衣',               { kana:'ホシコウマノジョウイ',             limited:true, eventActive:true  }],
+    ['ふわ山羊のカーディガン',     { kana:'フワヤギノカーディガン',           limited:true, eventActive:true  }],
+    ['桃猿のパーカー',             { kana:'モモザルノパーカー',               limited:true, eventActive:true  }],
+    ['朝日ひよこの法被',           { kana:'アサヒヒヨコノハッピ',             limited:true, eventActive:true  }],
+    ['忠犬こいぬの守衣',           { kana:'チュウケンコイヌノモリゴロモ',     limited:true, eventActive:true  }],
+    ['お団子こぶたのポンチョ',     { kana:'オダンゴコブタノポンチョ',         limited:true, eventActive:true  }],
   ]);
 
   // ============================================================
@@ -17704,6 +17729,241 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
     }
   }
 
+  // ============================================================
+  // 武器／防具：名称複数選択フィルターダイアログ（共通）
+  // - 一覧は「現在のテーブルに存在する名称」の重複なしリスト
+  // - 正順：レジストリ定義順 → レジストリ外名称（現在の出現順）
+  // - 逆順：正順を完全に反転
+  // - ソート方向だけ sessionStorage に保持（タブ／ブラウザ終了で破棄）
+  // - 選択名称は table.dataset.dbeNameMultiPick に保持し、soft reload 後も再適用
+  // ============================================================
+  function dbeOpenEquipNameFilterDialog(options){
+    const { table, id, registry, itemLabel, getRowName, applyFilter } = options || {};
+    if (!table || !id || !registry || typeof getRowName !== 'function' || typeof applyFilter !== 'function') return;
+
+    const isWeapon = (id === 'weaponTable');
+    const wndID = isWeapon ? 'dbe-dialog-weapon-name-filter' : 'dbe-dialog-armor-name-filter';
+    const sortSessionKey = isWeapon ? 'dbe-weapon-name-filter-sort' : 'dbe-armor-name-filter-sort';
+
+    const allNamesInTable = [];
+    const seen = new Set();
+    Array.from(table.tBodies?.[0]?.rows || []).forEach(row=>{
+      const name = String(getRowName(row) || '').trim();
+      if (!name || seen.has(name)) return;
+      seen.add(name);
+      allNamesInTable.push(name);
+    });
+
+    const registryIndex = new Map();
+    let registryPos = 0;
+    for (const name of registry.keys()){
+      const normalized = dbeStripLegacyGenerationMark(name);
+      if (!registryIndex.has(normalized)) registryIndex.set(normalized, registryPos);
+      registryPos++;
+    }
+
+    const normalOrder = allNamesInTable.slice().sort((a, b)=>{
+      const ai = registryIndex.has(a) ? registryIndex.get(a) : Number.POSITIVE_INFINITY;
+      const bi = registryIndex.has(b) ? registryIndex.get(b) : Number.POSITIVE_INFINITY;
+      if (ai !== bi) return ai - bi;
+      // レジストリ外名称はテーブル上で最初に現れた順を維持する。
+      return allNamesInTable.indexOf(a) - allNamesInTable.indexOf(b);
+    });
+
+    let activeNames = new Set();
+    try{
+      const raw = table.dataset.dbeNameMultiPick || '';
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(parsed)) parsed.forEach(name=>activeNames.add(String(name)));
+    }catch(_){
+      activeNames = new Set();
+    }
+
+    // 初回は全OFF。既に部分絞り込み中なら、その選択だけ復元する。
+    const draftSelected = new Set(
+      activeNames.size > 0 && activeNames.size < allNamesInTable.length
+        ? Array.from(activeNames).filter(name=>seen.has(name))
+        : []
+    );
+
+    let sortDirection = 'reverse';
+    try{
+      const saved = sessionStorage.getItem(sortSessionKey);
+      if (saved === 'normal' || saved === 'reverse') sortDirection = saved;
+    }catch(_){}
+
+    const wnd = ensureWindowShell(wndID);
+    wnd.classList.remove('dialogAlert', 'dialogAlertLite');
+    wnd.classList.add('dialogCommon');
+    Object.assign(wnd.style, {
+      width: 'min(92vw, 560px)',
+      maxWidth: 'min(92vw, 560px)',
+      maxHeight: '90vh',
+      height: 'fit-content',
+      overflowY: 'auto',
+      overflowX: 'hidden',
+      padding: '12px'
+    });
+
+    const shellCloseBtn = wnd.firstElementChild;
+    if (shellCloseBtn && shellCloseBtn.tagName === 'BUTTON'){
+      shellCloseBtn.style.display = 'none';
+      shellCloseBtn.disabled = true;
+    }
+    Array.from(wnd.children).forEach((ch, i)=>{ if (i > 0) ch.remove(); });
+
+    const body = document.createElement('div');
+    Object.assign(body.style, {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '10px',
+      minWidth: '0'
+    });
+
+    const title = document.createElement('div');
+    title.textContent = itemLabel + 'の絞り込み';
+    Object.assign(title.style, {
+      fontSize: '1.2em',
+      fontWeight: '700',
+      textAlign: 'center'
+    });
+
+    const sortRow = document.createElement('div');
+    Object.assign(sortRow.style, {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      flexWrap: 'wrap'
+    });
+    const sortCaption = document.createElement('span');
+    sortCaption.textContent = 'リストのソート';
+
+    const radioName = wndID + '-sort';
+    const makeSortRadio = (value, text)=>{
+      const label = document.createElement('label');
+      Object.assign(label.style, { display:'inline-flex', alignItems:'center', gap:'4px', margin:'0' });
+      const radio = document.createElement('input');
+      radio.type = 'radio';
+      radio.name = radioName;
+      radio.value = value;
+      radio.checked = (sortDirection === value);
+      label.append(radio, document.createTextNode(text));
+      return { label, radio };
+    };
+    const normalRadio = makeSortRadio('normal', '正順');
+    const reverseRadio = makeSortRadio('reverse', '逆順');
+    sortRow.append(sortCaption, normalRadio.label, reverseRadio.label);
+
+    const guide = document.createElement('div');
+    guide.textContent = '表示する' + itemLabel + 'を選択してください。';
+
+    const list = document.createElement('div');
+    Object.assign(list.style, {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '4px',
+      maxHeight: 'min(56vh, 460px)',
+      minHeight: '7em',
+      overflowY: 'auto',
+      overflowX: 'hidden',
+      border: '1px solid #999',
+      borderRadius: '6px',
+      padding: '8px',
+      background: '#fff'
+    });
+
+    function renderList(){
+      list.replaceChildren();
+      const names = sortDirection === 'reverse'
+        ? normalOrder.slice().reverse()
+        : normalOrder.slice();
+
+      if (!names.length){
+        const empty = document.createElement('div');
+        empty.textContent = '対象の' + itemLabel + 'がありません。';
+        empty.style.padding = '8px';
+        list.appendChild(empty);
+        return;
+      }
+
+      names.forEach(name=>{
+        const label = document.createElement('label');
+        Object.assign(label.style, {
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '8px',
+          margin: '0',
+          padding: '2px 0',
+          lineHeight: '1.35',
+          cursor: 'pointer'
+        });
+        const chk = document.createElement('input');
+        chk.type = 'checkbox';
+        chk.checked = draftSelected.has(name);
+        chk.style.marginTop = '0.15em';
+        chk.addEventListener('change', ()=>{
+          if (chk.checked) draftSelected.add(name);
+          else draftSelected.delete(name);
+        });
+        const txt = document.createElement('span');
+        txt.textContent = name;
+        txt.style.wordBreak = 'break-word';
+        label.append(chk, txt);
+        list.appendChild(label);
+      });
+    }
+
+    const onSortChange = (value)=>{
+      sortDirection = value;
+      try{ sessionStorage.setItem(sortSessionKey, value); }catch(_){}
+      renderList();
+    };
+    normalRadio.radio.addEventListener('change', ()=>{ if (normalRadio.radio.checked) onSortChange('normal'); });
+    reverseRadio.radio.addEventListener('change', ()=>{ if (reverseRadio.radio.checked) onSortChange('reverse'); });
+
+    const buttonRow = document.createElement('div');
+    Object.assign(buttonRow.style, {
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: '12px',
+      flexWrap: 'wrap'
+    });
+    const ok = document.createElement('button');
+    ok.textContent = 'OK';
+    const cancel = document.createElement('button');
+    cancel.textContent = 'Cancel';
+    [ok, cancel].forEach(btn=>{
+      Object.assign(btn.style, { padding:'5px 16px', minWidth:'88px', cursor:'pointer' });
+    });
+
+    cancel.addEventListener('click', ()=>{
+      wnd.style.display = 'none';
+    });
+    ok.addEventListener('click', ()=>{
+      try{
+        const selected = normalOrder.filter(name=>draftSelected.has(name));
+        // 全OFF／全ONは「名称複数選択フィルター無効」として扱う。
+        if (selected.length === 0 || selected.length === normalOrder.length){
+          try{ delete table.dataset.dbeNameMultiPick; }catch(_){ table.dataset.dbeNameMultiPick = ''; }
+        } else {
+          table.dataset.dbeNameMultiPick = JSON.stringify(selected);
+        }
+        applyFilter();
+      }finally{
+        wnd.style.display = 'none';
+      }
+    });
+
+    buttonRow.append(ok, cancel);
+    body.append(title, sortRow, guide, list, buttonRow);
+    wnd.appendChild(body);
+    renderList();
+
+    dbeBringDialogToFront(wnd);
+    wnd.style.display = 'block';
+  }
+
   // 〓〓〓〓〓 weaponTable ＋ armorTable 固有 〓〓〓〓〓
   function wireNameColumnSort(table, id, idxMap, hdrs, headerRow){
     // ネックレス表は除外（個別名なし・別ロジックのため）
@@ -17762,8 +18022,37 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
 
       const r2=document.createElement('div');
       r2.style.marginTop='4px';
-      [['全解除',()=>{setAll(false);try{delete table.dataset.dbeNamePick;}catch(_){table.dataset.dbeNamePick='';}applyFilter();applyColor();}],
-        ['再読込',(ev)=>{ Promise.resolve(dbeSoftReloadThisWeaponArmorTable(ev && ev.currentTarget)).catch(_=>{}); }]].forEach(([txt,fn])=>{
+      [['全解除',()=>{
+          setAll(false);
+          try{ delete table.dataset.dbeNamePick; }catch(_){ table.dataset.dbeNamePick=''; }
+          try{ delete table.dataset.dbeNameMultiPick; }catch(_){ table.dataset.dbeNameMultiPick=''; }
+          applyFilter();
+          applyColor();
+        }],
+        ['再読込',(ev)=>{ Promise.resolve(dbeSoftReloadThisWeaponArmorTable(ev && ev.currentTarget)).catch(_=>{}); }],
+        ['絞り込み',()=>{
+          const nameTitle = (id === 'weaponTable') ? '武器' : '防具';
+          const nameColForDialog = idxMap[nameTitle];
+          const registry = (id === 'weaponTable') ? weaponRegistry : armorRegistry;
+          dbeOpenEquipNameFilterDialog({
+            table,
+            id,
+            registry,
+            itemLabel: nameTitle,
+            getRowName: (row)=>{
+              const td = row?.cells?.[nameColForDialog];
+              try{
+                const parsed = (typeof dbeParseNameTd === 'function') ? dbeParseNameTd(td) : null;
+                const nm = (parsed && parsed.name != null) ? String(parsed.name).trim() : '';
+                if (nm) return nm;
+              }catch(_){}
+              const firstSpan = td ? td.querySelector('span') : null;
+              const raw = String(firstSpan ? firstSpan.textContent : (td?.textContent || '')).trim();
+              return dbeStripLegacyGenerationMark(raw.split('\n')[0].split('【')[0].trim());
+            },
+            applyFilter
+          });
+        }]].forEach(([txt,fn])=>{
         const b=document.createElement('button');
         b.textContent=txt;
         Object.assign(b.style,{fontSize:'0.9em',padding:'4px 8px',margin:'10px'});
@@ -17898,6 +18187,15 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
         const selectedRarities = Object.keys(elm).filter(rk=>elm[rk].checked);
         const selectedElements = Object.keys(rarObj).filter(el=>rarObj[el].checked);
         const pickedName = (table.dataset.dbeNamePick || '').trim();
+        let multiPickedNames = new Set();
+        try{
+          const raw = table.dataset.dbeNameMultiPick || '';
+          const parsed = raw ? JSON.parse(raw) : [];
+          if (Array.isArray(parsed)) multiPickedNames = new Set(parsed.map(name=>String(name).trim()).filter(Boolean));
+        }catch(_){
+          multiPickedNames = new Set();
+        }
+        const useMultiNameFilter = multiPickedNames.size > 0;
         const useGenerationFilter = (synergyChk.checked !== legacyChk.checked);
         // アイテムIDしきい値の取得（チェックON時のみ使用）
         // 仕様：weaponTable -> necClm-Equp 列、armorTable -> amrClm-Equp 列を参照
@@ -17917,11 +18215,12 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
           const el = (row.cells[elemCol].textContent.replace(/[0-9]/g,'').trim()||'なし');
           const okR = selectedRarities.length === 0 || selectedRarities.includes(rt);
           const okE = selectedElements.length === 0 || selectedElements.includes(el);
+          const rowName = dbeGetPureNameFromNameCell(row.cells[nameCol]);
           let okN = true;
           if (pickedName){
-            const rowName = dbeGetPureNameFromNameCell(row.cells[nameCol]);
             okN = (rowName === pickedName);
           }
+          const okMultiName = !useMultiNameFilter || multiPickedNames.has(rowName);
 
           // 世代フィルター：
           // - 両方OFF / 両方ON は無効
@@ -17945,7 +18244,7 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
             okId = Number.isNaN(itemId) ? true : (itemId >= idThreshold);
           }
 
-          row.style.display = (okR && okE && okGen && okId && okN) ? '' : 'none';
+          row.style.display = (okR && okE && okGen && okId && okN && okMultiName) ? '' : 'none';
         });
 
         applyColor();
