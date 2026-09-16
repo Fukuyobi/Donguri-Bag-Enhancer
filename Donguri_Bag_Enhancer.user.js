@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Donguri Bag Enhancer
 // @namespace    https://donguri.5ch.io/
-// @version      14.6.7.0
+// @version      14.6.9.2
 // @description  5ちゃんねる「どんぐりシステム」の「アイテムバッグ」ページ機能改良スクリプト。
 // @author       Author: 福呼び草 / Assistant: ChatGPT（OpenAI）
 // @contributor  Suggested by: 'ID:YTtKPa4Z0'
@@ -33,7 +33,7 @@
   // ============================================================
   // スクリプト自身のバージョン（About 表示用）
   // ============================================================
-  const DBE_VERSION    = '14.6.7.0';
+  const DBE_VERSION    = '14.6.9.2';
 
   // ============================================================
   // 現在のどんぐりドメイン
@@ -2432,10 +2432,11 @@
             tot = n + w + a;
 
       const info = document.createElement('div');
+      info.id = 'dbe-bag-item-summary';
       info.style.marginTop = '1em';
       info.innerHTML = `
-        <div style="font-size:1.1em;font-weight:bold">所持アイテム総数：${tot}</div>
-        <div style="font-size:1em">（ネックレス：${n}個／武器：${w}個／防具：${a}個）</div>
+        <div id="dbe-bag-item-summary-total" style="font-size:1.1em;font-weight:bold">所持アイテム総数：${tot}</div>
+        <div id="dbe-bag-item-summary-detail" style="font-size:1em">（ネックレス：${n}個／武器：${w}個／防具：${a}個）</div>
       `;
       ref.insertAdjacentElement('afterend', info);
     }
@@ -5074,15 +5075,15 @@
     const a = countRows('armorTable');
     const total = n + w + a;
 
-    const totalLine = Array.from(document.querySelectorAll('div'))
-      .find(el => /^所持アイテム総数：/.test((el.textContent || '').trim()));
-    if (totalLine){
-      totalLine.textContent = `所持アイテム総数：${total}`;
-      const detailLine = totalLine.nextElementSibling;
-      if (detailLine){
-        detailLine.textContent = `（ネックレス：${n}個／武器：${w}個／防具：${a}個）`;
-      }
-    }
+    // サマリ専用の要素だけを更新し、親divや隣接リンクを変更しない。
+    const summary = document.getElementById('dbe-bag-item-summary');
+    if (!summary) return;
+    const totalLine = summary.querySelector('#dbe-bag-item-summary-total');
+    const detailLine = summary.querySelector('#dbe-bag-item-summary-detail');
+    if (!totalLine || !detailLine) return;
+
+    totalLine.textContent = `所持アイテム総数：${total}`;
+    detailLine.textContent = `（ネックレス：${n}個／武器：${w}個／防具：${a}個）`;
   }
 
   // =========================
@@ -9354,8 +9355,9 @@
           const rulesRaw =
             (window.DBE_RULES && Array.isArray(window.DBE_RULES[kind]) ? window.DBE_RULES[kind] :
             (Array.isArray(window._rulesData?.[kind]) ? window._rulesData[kind] : [])) || [];
+          const activeRules = rulesRaw.filter(r => r && r.enabled !== false);
 
-          const needRar  = rulesRaw.some(r => {
+          const needRar  = activeRules.some(r => {
             if (!r || typeof r !== 'object') return false;
 
             // 現行形式は rarity、旧形式は rar。
@@ -9372,18 +9374,18 @@
 
             return /^(UR|SSR|SR|R|N)$/.test(String(raw || '').trim());
           });
-          const needElem = rulesRaw.some(r => Array.isArray(r.elem) ? r.elem.length>0 : !!r.elem);
-          const needMrm  = rulesRaw.some(r => r.mrm && r.mrm.mode === 'spec');
+          const needElem = activeRules.some(r => Array.isArray(r.elem) ? r.elem.length>0 : !!r.elem);
+          const needMrm  = activeRules.some(r => r.mrm && r.mrm.mode === 'spec');
           // 武器/防具の数値比較フラグ（SPD / WT.）
-          const needSpd  = (kind==='wep') && rulesRaw.some(r => r && r.spd && String(r.spd.value ?? '') !== '');
-          const needWgt  = (kind==='amr') && rulesRaw.some(r => r && r.wt  && String(r.wt.value  ?? '') !== '');
+          const needSpd  = (kind==='wep') && activeRules.some(r => r && r.spd && String(r.spd.value ?? '') !== '');
+          const needWgt  = (kind==='amr') && activeRules.some(r => r && r.wt  && String(r.wt.value  ?? '') !== '');
           // 追加：武器 ATK(min/max) / 防具 DEF(min/max) / 武器・防具 CRIT
-          const needAtk  = (kind==='wep') && rulesRaw.some(r => {
+          const needAtk  = (kind==='wep') && activeRules.some(r => {
             const mn = r && r.minATK && String(r.minATK.value ?? '') !== '';
             const mx = r && r.maxATK && String(r.maxATK.value ?? '') !== '';
             return mn || mx;
           });
-          const needDef  = (kind==='amr') && rulesRaw.some(r => {
+          const needDef  = (kind==='amr') && activeRules.some(r => {
             const mn = r && r.minDEF && String(r.minDEF.value ?? '') !== '';
             const mx = r && r.maxDEF && String(r.maxDEF.value ?? '') !== '';
             return mn || mx;
@@ -9848,6 +9850,8 @@
         const list = (rowInfo.kind==='wep') ? (rules.wep || []) : (rowInfo.kind==='amr' ? (rules.amr || []) : (rules.nec || []));
 
         for (const r of list){
+          // enabled 未保存の既存カードはON。OFFのカードは評価しない。
+          if (!r || r.enabled === false) continue;
 
           // ============================================================
           // 武器/防具：指定仕様（カードを上から順に1枚ずつ処理）
@@ -12112,9 +12116,9 @@
     // 既存カードの描画
     // ─────────────────────────────────────────────
     function openEditRuleWindow(kind, idx){
-      if (!(kind === 'wep' || kind === 'amr')) return;
+      if (!['wep', 'amr', 'nec'].includes(kind)) return;
       try{
-        const arr = (kind==='wep') ? (_rulesData.wep || []) : (_rulesData.amr || []);
+        const arr = _rulesData[kind] || [];
         const src = arr[idx];
         if (!src) return;
 
@@ -12123,7 +12127,7 @@
         Array.from(wnd.children).slice(1).forEach(n=>n.remove());
 
         const head = document.createElement('div');
-        head.textContent = `フィルタカード再編集（${kind==='wep'?'武器':'防具'} #${idx+1}）`;
+        head.textContent = `フィルタカード再編集（${kind==='wep'?'武器':(kind==='amr'?'防具':'ネックレス')} #${idx+1}）`;
         Object.assign(head.style,{ fontWeight:'bold', margin:'0 0 6px 0' });
 
         const body = document.createElement('div');
@@ -12135,7 +12139,7 @@
         const onClose = ()=>{ try{ wnd.style.display='none'; }catch(_e){} };
         let built = null;
         try{
-          built = buildFilterForm(kind, { edit:true, editIndex: idx, initialRule: initial, onClose });
+          built = buildFilterForm(kind, { edit:true, editIndex: idx, editTarget: src, initialRule: initial, onClose });
         }catch(err){
           console.warn('[DBE] buildFilterForm(edit) failed:', err);
         }
@@ -12224,14 +12228,13 @@
           restHTML = (q>=0 ? paramsHTML.slice(q+1) : '') || '';
         }
 
-        // [1段目] 操作列：［通し番号＋上移動UI］ / ロックor分解バッジ / 再編集 / 削除（概ね均等配置）
+        // [1段目] 移動 / ON・OFF / バッジ / 再編集・複製・削除
         const headRow = document.createElement('div');
         Object.assign(headRow.style, {
-          display:'grid',
-          // 4要素を均等に配置（ネックレスは「再編集」無しのため 3要素）
-          gridTemplateColumns: (kind === 'wep' || kind === 'amr') ? '1fr 1fr 1fr 1fr' : '1fr 1fr 1fr',
+          display:'flex',
+          flexWrap:'wrap',
           alignItems:'center',
-          columnGap:'6px'
+          gap:'12px 16px'
         });
 
         // 通し番号（左端）…［数字］、右側に 1em margin
@@ -12258,7 +12261,7 @@
         });
         // ------------------------------------------------------------
         // ★この値を変えるだけで「① / 数値 / ▲」ひとかたまりの高さを調整できる
-        moveBadge.style.setProperty('--dbe-moveui-h','1.8em');
+        moveBadge.style.setProperty('--dbe-moveui-h','2.2em');
         // ------------------------------------------------------------
 
         // gridColumn は使わず、左グループ（通し番号＋上移動UI）としてまとめて配置する
@@ -12374,16 +12377,70 @@
         // △ここまで△ フィルタカードの上移動UI
         // ============================================================
 
+        // ============================================================
+        // ▽ここから▽ ONは左に丸、OFFは右に丸を表示するスライドスイッチ。
+        // ------------------------------------------------------------
+        const btnEnabled = document.createElement('button');
+        btnEnabled.type = 'button';
+        btnEnabled.setAttribute('role', 'switch');
+        Object.assign(btnEnabled.style, {
+          position:'relative', flex:'0 0 88px', width:'88px', height:'36px',
+          boxSizing:'border-box', margin:'0', padding:'0',
+          border:'2px solid', borderRadius:'18px', cursor:'pointer',
+          fontSize:'14px', fontWeight:'700', lineHeight:'1',
+          transition:'background-color 160ms ease, border-color 160ms ease'
+        });
+        const switchKnob = document.createElement('span');
+        switchKnob.setAttribute('aria-hidden', 'true');
+        Object.assign(switchKnob.style, {
+          position:'absolute', left:'3px', top:'3px', width:'26px', height:'26px',
+          boxSizing:'border-box', borderRadius:'50%', background:'#FFF',
+          border:'1px solid currentColor', boxShadow:'0 1px 3px #0004',
+          transition:'transform 160ms ease'
+        });
+        const switchText = document.createElement('span');
+        switchText.setAttribute('aria-hidden', 'true');
+        Object.assign(switchText.style, {
+          position:'absolute', top:'0', bottom:'0', width:'48px',
+          display:'flex', alignItems:'center', justifyContent:'center'
+        });
+        const refreshEnabled = ()=>{
+          const on = card.enabled !== false;
+          btnEnabled.setAttribute('aria-checked', String(on));
+          btnEnabled.setAttribute('aria-label', `フィルタカード ${idx+1} の有効・無効`);
+          btnEnabled.title = on ? 'ON：クリックでこのカードを無効にする' : 'OFF：クリックでこのカードを有効にする';
+          btnEnabled.style.background = on ? '#D7F2FF' : '#FFE4A3';
+          btnEnabled.style.borderColor = on ? '#17618A' : '#915000';
+          btnEnabled.style.color = on ? '#104F73' : '#713D00';
+          switchKnob.style.transform = on ? 'translateX(0)' : 'translateX(52px)';
+          switchText.textContent = on ? 'ON' : 'OFF';
+          switchText.style.left = on ? '33px' : '3px';
+          row.dataset.enabled = String(on);
+        };
+        btnEnabled.append(switchKnob, switchText);
+        refreshEnabled();
+        btnEnabled.addEventListener('click', (ev)=>{
+          ev.preventDefault();
+          ev.stopPropagation();
+          card.enabled = card.enabled === false;
+          refreshEnabled();
+          try{ if (typeof saveRulesToStorage==='function') saveRulesToStorage(); }catch(_e){}
+        });
+        // ------------------------------------------------------------
+        // △ここまで△ ONは左に丸、OFFは右に丸を表示するスライドスイッチ。
+        // ============================================================
+
         // 「ロック」または「分解」バッジ
         const badgeBox = document.createElement('div');
         Object.assign(badgeBox.style, { margin:'0', fontSize:'0.85em', justifySelf:'center' });
         badgeBox.innerHTML = badgeHTML || '';
-        badgeBox.style.gridColumn = '2';
+        badgeBox.style.flexShrink = '0';
 
-        // 「再編集」ボタン（武器/防具のみ）…1段目の中央寄りに配置
+        // 「再編集」ボタン（武器・防具・ネックレス）
         let btnEdit = null;
-        if (kind === 'wep' || kind === 'amr'){
+        if (kind === 'wep' || kind === 'amr' || kind === 'nec'){
           btnEdit = document.createElement('button');
+          btnEdit.type = 'button';
           btnEdit.textContent = '再編集';
           btnEdit.title = 'このカードを再編集';
           Object.assign(btnEdit.style,{ padding:'2px 16px', justifySelf:'center' });
@@ -12391,11 +12448,31 @@
             ev.stopPropagation();
             openEditRuleWindow(kind, idx);
           });
-          btnEdit.style.gridColumn = '3';
+          btnEdit.style.whiteSpace = 'nowrap';
         }
 
-        // ③削除
+        // 複製は条件の入れ子も含めて独立させ、元カードの直下へ挿入する。
+        const btnCopy = document.createElement('button');
+        btnCopy.type = 'button';
+        btnCopy.textContent = '複製';
+        btnCopy.title = 'このカードを複製してすぐ下に挿入';
+        btnCopy.addEventListener('click', (ev)=>{
+          ev.preventDefault();
+          ev.stopPropagation();
+          const arr = _rulesData[kind];
+          const at = Array.isArray(arr) ? arr.indexOf(card) : -1;
+          if (at < 0) return;
+          const copy = JSON.parse(JSON.stringify(card));
+          copy.enabled = card.enabled !== false;
+          arr.splice(at + 1, 0, copy);
+          try{ if (typeof saveRulesToStorage==='function') saveRulesToStorage(); }catch(_e){}
+          // 通し番号と上移動入力のmaxを全カード分更新する。
+          renderCards(kind);
+        });
+
+        // 削除
         const btnDel = document.createElement('button');
+        btnDel.type = 'button';
         btnDel.textContent = '削除';
         btnDel.title = 'このカードを削除';
         Object.assign(btnDel.style, { padding:'2px 8px', justifySelf:'end' });
@@ -12406,21 +12483,30 @@
           try{ if (typeof saveRulesToStorage==='function') saveRulesToStorage(); }catch(_e){}
           renderCards(kind);
         });
-        btnDel.style.gridColumn = (kind === 'wep' || kind === 'amr') ? '4' : '3';
+        // 編集系ボタンを右側にまとめ、狭い画面では折り返す。
+        const actionGroup = document.createElement('div');
+        Object.assign(actionGroup.style, {
+          display:'flex', flexWrap:'wrap', alignItems:'center',
+          gap:'12px', marginLeft:'auto'
+        });
+        [btnEdit, btnCopy, btnDel].filter(Boolean).forEach(btn=>{
+          Object.assign(btn.style, {
+            margin:'0', minHeight:'36px', padding:'4px 14px',
+            whiteSpace:'nowrap', cursor:'pointer'
+          });
+          actionGroup.appendChild(btn);
+        });
 
         // 左端：［通し番号＋上移動UI］を 1つの要素としてまとめる（左寄せ）
         const leftGroup = document.createElement('div');
         Object.assign(leftGroup.style,{
           display:'inline-flex',
           alignItems:'center',
-          justifySelf:'start'
+          flexShrink:'0'
         });
         leftGroup.append(numBox, moveBadge);
 
-        headRow.appendChild(leftGroup); // col 1
-        headRow.appendChild(badgeBox);  // col 2
-        if (btnEdit) headRow.appendChild(btnEdit); // col 3（武器/防具のみ）
-        headRow.appendChild(btnDel);    // col 4（武器/防具） or col 3（ネックレス）
+        headRow.append(leftGroup, btnEnabled, badgeBox, actionGroup);
 
         // [2段目] 《武器名/防具名》 or ネックレス名
         const nameRow = document.createElement('div');
@@ -12464,6 +12550,7 @@
     function buildFilterForm(kind, opts){
       opts = opts || {};
       const isEdit = !!opts.edit;
+      const necField = isEdit ? 'nec-edit' : 'nec';
       const card = document.createElement('div');
       card.className = 'fc-card';
       // 「フィルタカード」ビルダー/再編集 でID衝突を避ける（同時に存在しうるため分離）
@@ -12872,12 +12959,12 @@
           Object.assign(gp.style,{ display:'flex', alignItems:'center' });
           const lb1=document.createElement('label');
           Object.assign(lb1.style,{ display:'inline-flex', alignItems:'center', gap:'0.1em', marginRight:'2em' });
-          const r1 = document.createElement('input'); r1.type='radio'; r1.name=`fc-mode-${kind}`; r1.id=`fc-${kind}-mode-lock`;
+          const r1 = document.createElement('input'); r1.type='radio'; r1.name=`fc-mode-${necField}`; r1.id=`fc-${necField}-mode-lock`;
           const t1 = document.createElement('span'); t1.textContent='ロック';
           lb1.htmlFor=r1.id; lb1.append(r1,t1);
           const lb2=document.createElement('label');
           Object.assign(lb2.style,{ display:'inline-flex', alignItems:'center', gap:'0.2em' });
-          const r2 = document.createElement('input'); r2.type='radio'; r2.name=`fc-mode-${kind}`; r2.id=`fc-${kind}-mode-del`;
+          const r2 = document.createElement('input'); r2.type='radio'; r2.name=`fc-mode-${necField}`; r2.id=`fc-${necField}-mode-del`;
           const t2 = document.createElement('span'); t2.textContent='分解';
           lb2.htmlFor=r2.id; lb2.append(r2,t2);
           gp.append(lb1,lb2);
@@ -12895,7 +12982,7 @@
           const allLabel = document.createElement('label');
           allLabel.classList.add('fc-all-label');
           Object.assign(allLabel.style,{ display:'inline-flex', alignItems:'center', gap:'0' });
-          const ckAll = document.createElement('input'); ckAll.type='checkbox'; ckAll.id=`fc-${kind}-grade-all`;
+          const ckAll = document.createElement('input'); ckAll.type='checkbox'; ckAll.id=`fc-${necField}-grade-all`;
           const allTxt = document.createElement('span'); allTxt.textContent='不問';
           allLabel.htmlFor=ckAll.id; allLabel.append(ckAll, allTxt);
           leftStack.append(allLabel);
@@ -12905,7 +12992,7 @@
           ['プラチナ','金','銀','青銅','銅'].forEach(n=>{
             const pair = document.createElement('label');
             Object.assign(pair.style,{ display:'inline-flex', alignItems:'center', gap:'0.1em' });
-            const c=document.createElement('input'); c.type='checkbox'; c.id=`fc-${kind}-grade-${n}`;
+            const c=document.createElement('input'); c.type='checkbox'; c.id=`fc-${necField}-grade-${n}`;
             const lb=document.createElement('span'); lb.textContent=n;
             pair.htmlFor=c.id; pair.append(c, lb);
             rightWrap.append(pair);
@@ -12935,7 +13022,7 @@
           const allWrap = document.createElement('label');
           allWrap.classList.add('fc-all-label');
           Object.assign(allWrap.style,{ display:'inline-flex', alignItems:'center', gap:'4px' });
-          const ckAll = document.createElement('input'); ckAll.type='checkbox'; ckAll.id=`fc-${kind}-prop-all`;
+          const ckAll = document.createElement('input'); ckAll.type='checkbox'; ckAll.id=`fc-${necField}-prop-all`;
           const allTxt = document.createElement('span'); allTxt.textContent='不問';
           allWrap.htmlFor=ckAll.id; allWrap.append(ckAll, allTxt);
           setLeftAll2Lines(leftCol, leftCol.textContent.trim(), allWrap);
@@ -12948,10 +13035,10 @@
           propInput.step='1';
           propInput.className='fc-input';
           propInput.style.width='5em';
-          propInput.id = `fc-${kind}-prop-num`;
+          propInput.id = `fc-${necField}-prop-num`;
           propSel = document.createElement('select');
           propSel.className='fc-select';
-          propSel.id = `fc-${kind}-prop-op`;
+          propSel.id = `fc-${necField}-prop-op`;
           ['以上','未満'].forEach(o=>{ const op=document.createElement('option'); op.value=o; op.textContent=o; propSel.append(op); });
           Object.assign(propInput.style,{ height:'2em' });
           Object.assign(propSel.style,{ height:'2em' });
@@ -12972,7 +13059,7 @@
           const allWrap = document.createElement('label');
           allWrap.classList.add('fc-all-label');
           Object.assign(allWrap.style,{ display:'inline-flex', alignItems:'center', gap:'0' });
-          const ckAll = document.createElement('input'); ckAll.type='checkbox'; ckAll.id=`fc-${kind}-debuff-all`;
+          const ckAll = document.createElement('input'); ckAll.type='checkbox'; ckAll.id=`fc-${necField}-debuff-all`;
           const allTxt = document.createElement('span'); allTxt.textContent='不問';
           allWrap.htmlFor=ckAll.id; allWrap.append(ckAll, allTxt);
           setLeftAll2Lines(leftCol, leftCol.textContent.trim(), allWrap);
@@ -12984,10 +13071,10 @@
           debuffInput.step='1';
           debuffInput.className='fc-input';
           debuffInput.style.width='5em';
-          debuffInput.id = `fc-${kind}-debuff-num`;
+          debuffInput.id = `fc-${necField}-debuff-num`;
           debuffSel = document.createElement('select');
           debuffSel.className='fc-select';
-          debuffSel.id = `fc-${kind}-debuff-op`;
+          debuffSel.id = `fc-${necField}-debuff-op`;
           ['以上','未満'].forEach(o=>{ const op=document.createElement('option'); op.value=o; op.textContent=o; debuffSel.append(op); });
           Object.assign(debuffInput.style,{ height:'2em' });
           Object.assign(debuffSel.style,{ height:'2em' });
@@ -13007,7 +13094,7 @@
           const allWrap = document.createElement('label');
           allWrap.classList.add('fc-all-label');
           Object.assign(allWrap.style,{ display:'inline-flex', alignItems:'center', gap:'0' });
-          const ckAll = document.createElement('input'); ckAll.type='checkbox'; ckAll.id=`fc-${kind}-delta-all`;
+          const ckAll = document.createElement('input'); ckAll.type='checkbox'; ckAll.id=`fc-${necField}-delta-all`;
           const allTxt = document.createElement('span'); allTxt.textContent='不問';
           allWrap.htmlFor=ckAll.id; allWrap.append(ckAll, allTxt);
           setLeftAll2Lines(leftCol, leftCol.textContent.trim(), allWrap);
@@ -13016,10 +13103,10 @@
           deltaInput.type='text';
           deltaInput.className='fc-input';
           deltaInput.style.width='5em';
-          deltaInput.id = `fc-${kind}-delta-val`;
+          deltaInput.id = `fc-${necField}-delta-val`;
           deltaSel = document.createElement('select');
           deltaSel.className='fc-select';
-          deltaSel.id = `fc-${kind}-delta-op`;
+          deltaSel.id = `fc-${necField}-delta-op`;
           ['以上','未満'].forEach(o=>{ const op=document.createElement('option'); op.value=o; op.textContent=o; deltaSel.append(op); });
           Object.assign(deltaInput.style,{ height:'2em' });
           Object.assign(deltaSel.style,{ height:'2em' });
@@ -13034,6 +13121,45 @@
         // 6) 追加/初期化/全消去（共通の ⑦ 行と同じ意匠でネックレスでも利用）
         // → この後の「⑦ ボタン列」でまとめて実装されるため、個別には行わない
         // 追加時のデータ収集を wep/amr と分岐させる（下の btnAdd ハンドラで kind==='nec' 分岐）
+      }
+
+      // ネックレス再編集：保存済み条件を入力欄へ戻す。
+      if (isEdit && kind === 'nec' && opts.initialRule){
+        const rule0 = opts.initialRule;
+        const fire = el => el.dispatchEvent(new Event('change', { bubbles:true }));
+        ['lock', 'del'].forEach(mode=>{
+          const el = card.querySelector(`#fc-${necField}-mode-${mode}`);
+          el.checked = rule0.type === mode;
+          fire(el);
+        });
+        const grade = rule0.grade;
+        const picks = Array.isArray(grade?.list) ? grade.list : [];
+        const gradeAll = card.querySelector(`#fc-${necField}-grade-all`);
+        gradeAll.checked = !grade || !!grade.all || picks.length === 0;
+        ['プラチナ','金','銀','青銅','銅'].forEach(name=>{
+          const el = card.querySelector(`#fc-${necField}-grade-${name}`);
+          el.checked = picks.includes(name);
+          fire(el);
+        });
+        fire(gradeAll);
+        const restoreCondition = (key, obj, valueKey, suffix)=>{
+          const all = card.querySelector(`#fc-${necField}-${key}-all`);
+          const input = card.querySelector(`#fc-${necField}-${key}-${suffix}`);
+          const op = card.querySelector(`#fc-${necField}-${key}-op`);
+          all.checked = !obj || !!obj.all;
+          input.value = all.checked ? '' : String(obj[valueKey] ?? '');
+          op.value = all.checked ? '以上' : String(obj.op ?? '以上');
+          fire(all);
+        };
+        restoreCondition('prop', rule0.prop || rule0.propCount || rule0.property, 'num', 'num');
+        restoreCondition('debuff', rule0.debuff, 'num', 'num');
+        restoreCondition('delta', rule0.delta, 'value', 'val');
+        // 旧形式のBuff条件は意味が異なるため、プロパティ数へ変換しない。
+        if (rule0.buff && !rule0.buff.all){
+          const note = document.createElement('div');
+          note.textContent = `旧形式のBuff条件（${rule0.buff.num}${rule0.buff.op}）は維持して保存します。`;
+          card.appendChild(note);
+        }
       }
 
       // ★ 再編集：初期値を反映（武器/防具のみ）
@@ -13268,8 +13394,8 @@
           // ① 多重クリック防止（すでに処理中なら無視）
           if (btnAdd.disabled) return;
           btnAdd.disabled = true;
-          const mode = (card.querySelector(`#fc-${kind}-mode-lock`)?.checked ? 'lock' :
-                        (card.querySelector(`#fc-${kind}-mode-del`)?.checked  ? 'del'  : null));
+          const mode = (card.querySelector(`#fc-${kind==='nec' ? necField : kind}-mode-lock`)?.checked ? 'lock' :
+                        (card.querySelector(`#fc-${kind==='nec' ? necField : kind}-mode-del`)?.checked  ? 'del'  : null));
 
           // ①-0) 必須入力チェック（未設定項目の収集）
           const missing = [];
@@ -13317,27 +13443,27 @@
 
           } else if (kind==='nec'){
             // グレード：『すべて』or 1つ以上選択
-            const gAll = !!card.querySelector('#fc-nec-grade-all')?.checked;
+            const gAll = !!card.querySelector(`#fc-${necField}-grade-all`)?.checked;
             let gPick = false;
-            card.querySelectorAll('input[id^="fc-nec-grade-"]:not(#fc-nec-grade-all)').forEach(cb=>{ if (cb.checked) gPick = true; });
+            card.querySelectorAll(`input[id^="fc-${necField}-grade-"]:not(#fc-${necField}-grade-all)`).forEach(cb=>{ if (cb.checked) gPick = true; });
             if (!(gAll || gPick)) missing.push('グレード');
 
             // プロパティ数：『すべて』or 数値＋比較（Buff + DeBuff の合計）
-            const pAll = !!card.querySelector('#fc-nec-prop-all')?.checked;
-            const pVal = (card.querySelector('#fc-nec-prop-num')?.value||'').trim();
-            const pOp  = (card.querySelector('#fc-nec-prop-op')?.value||'').trim();
+            const pAll = !!card.querySelector(`#fc-${necField}-prop-all`)?.checked;
+            const pVal = (card.querySelector(`#fc-${necField}-prop-num`)?.value||'').trim();
+            const pOp  = (card.querySelector(`#fc-${necField}-prop-op`)?.value||'').trim();
             if (!(pAll || (pVal && pOp))) missing.push('プロパティ数');
 
             // DeBuff：『すべて』or 数値＋比較
-            const dAll = !!card.querySelector('#fc-nec-debuff-all')?.checked;
-            const dVal = (card.querySelector('#fc-nec-debuff-num')?.value||'').trim();
-            const dOp  = (card.querySelector('#fc-nec-debuff-op')?.value||'').trim();
+            const dAll = !!card.querySelector(`#fc-${necField}-debuff-all`)?.checked;
+            const dVal = (card.querySelector(`#fc-${necField}-debuff-num`)?.value||'').trim();
+            const dOp  = (card.querySelector(`#fc-${necField}-debuff-op`)?.value||'').trim();
             if (!(dAll || (dVal && dOp))) missing.push('DeBuff');
 
             // 増減値：『すべて』or 数値＋比較
-            const zAll = !!card.querySelector('#fc-nec-delta-all')?.checked;
-            const zVal = (card.querySelector('#fc-nec-delta-val')?.value||'').trim();
-            const zOp  = (card.querySelector('#fc-nec-delta-op')?.value||'').trim();
+            const zAll = !!card.querySelector(`#fc-${necField}-delta-all`)?.checked;
+            const zVal = (card.querySelector(`#fc-${necField}-delta-val`)?.value||'').trim();
+            const zOp  = (card.querySelector(`#fc-${necField}-delta-op`)?.value||'').trim();
             if (!(zAll || (zVal && zOp))) missing.push('増減値');
           }
 
@@ -13408,13 +13534,13 @@
             // ネックレス専用の収集（IDベースで明確に取得）
             // grade
             let grade = null;
-            const ckAllGrade = card.querySelector(`#fc-${kind}-grade-all`);
+            const ckAllGrade = card.querySelector(`#fc-${necField}-grade-all`);
             if (ckAllGrade && ckAllGrade.checked){
               grade = { all:true };
             } else {
               const picks = [];
               ['プラチナ','金','銀','青銅','銅'].forEach(n=>{
-                const c = card.querySelector(`#fc-${kind}-grade-${n}`);
+                const c = card.querySelector(`#fc-${necField}-grade-${n}`);
                 if (c && c.checked) picks.push(n);
               });
               if (picks.length>0) grade = { list:picks };
@@ -13422,12 +13548,12 @@
             // prop count（0〜7 / 以上・未満）※ Buff + DeBuff の合計
             let prop = null;
             {
-              const ckAll = card.querySelector(`#fc-${kind}-prop-all`);
+              const ckAll = card.querySelector(`#fc-${necField}-prop-all`);
               if (ckAll && ckAll.checked){
                 prop = { all:true };
               } else {
-                const numEl = card.querySelector(`#fc-${kind}-prop-num`);
-                const opEl  = card.querySelector(`#fc-${kind}-prop-op`);
+                const numEl = card.querySelector(`#fc-${necField}-prop-num`);
+                const opEl  = card.querySelector(`#fc-${necField}-prop-op`);
                 const num = Number((numEl?.value||'').trim());
                 const op  = (opEl?.value||'').trim();
                 if (Number.isFinite(num) && op){ prop = { num, op }; }
@@ -13436,12 +13562,12 @@
             // debuff count（0〜7 / 以上・未満）
             let debuff = null;
             {
-              const ckAll = card.querySelector(`#fc-${kind}-debuff-all`);
+              const ckAll = card.querySelector(`#fc-${necField}-debuff-all`);
               if (ckAll && ckAll.checked){
                 debuff = { all:true };
               } else {
-                const numEl = card.querySelector(`#fc-${kind}-debuff-num`);
-                const opEl  = card.querySelector(`#fc-${kind}-debuff-op`);
+                const numEl = card.querySelector(`#fc-${necField}-debuff-num`);
+                const opEl  = card.querySelector(`#fc-${necField}-debuff-op`);
                 const num = Number((numEl?.value||'').trim());
                 const op  = (opEl?.value||'').trim();
                 if (Number.isFinite(num) && op){ debuff = { num, op }; }
@@ -13450,12 +13576,12 @@
             // delta%
             let delta = null;
             {
-              const ckAll = card.querySelector(`#fc-${kind}-delta-all`);
+              const ckAll = card.querySelector(`#fc-${necField}-delta-all`);
               if (ckAll && ckAll.checked){
                 delta = { all:true };
               } else {
-                const val = (card.querySelector(`#fc-${kind}-delta-val`)?.value||'').trim();
-                const op  = (card.querySelector(`#fc-${kind}-delta-op`)?.value||'').trim();
+                const val = (card.querySelector(`#fc-${necField}-delta-val`)?.value||'').trim();
+                const op  = (card.querySelector(`#fc-${necField}-delta-op`)?.value||'').trim();
                 if (val && op){ delta = { value:val, op }; }
               }
             }
@@ -13474,10 +13600,32 @@
               ].join('／')
             };
             const target = _rulesData.nec;
-            target.push(rule);
+            if (isEdit){
+              const editAt = target.indexOf(opts.editTarget);
+              if (editAt < 0){
+                btnAdd.disabled = false;
+                dbeShowOkDialog('確認', '編集対象のカードが削除または置換されています。再編集画面を開き直してください。');
+                return;
+              }
+              rule.enabled = target[editAt].enabled !== false;
+              if (opts.initialRule.buff){
+                rule.buff = JSON.parse(JSON.stringify(opts.initialRule.buff));
+                if (!rule.buff.all){
+                  rule.label += `／《Buff》${rule.buff.num}${rule.buff.op}`;
+                }
+              }
+              target[editAt] = rule;
+            } else {
+              rule.enabled = true;
+              target.push(rule);
+            }
             try { if (typeof saveRulesToStorage==='function') saveRulesToStorage(); } catch(_e){}
             renderCards(kind);
-            btnInit.click();
+            if (isEdit){
+              try{ if (typeof opts.onClose === 'function') opts.onClose(); }catch(_e){}
+            } else {
+              btnInit.click();
+            }
             return;
           }
           // ここから従来（武器/防具）の追加処理
@@ -13552,9 +13700,18 @@
             mrm: mrmObj
           }, extra);
           const target = (kind==='wep') ? _rulesData.wep : _rulesData.amr;
-          if (isEdit && opts && typeof opts.editIndex === 'number' && opts.editIndex >= 0 && opts.editIndex < target.length){
-            target[opts.editIndex] = rule;
+          if (isEdit){
+            // 編集中にカードが複製・移動されても、元のカードへ保存する。
+            const editAt = target.indexOf(opts.editTarget);
+            if (editAt < 0){
+              btnAdd.disabled = false;
+              dbeShowOkDialog('確認', '編集対象のカードが削除または置換されています。再編集画面を開き直してください。');
+              return;
+            }
+            rule.enabled = target[editAt].enabled !== false;
+            target[editAt] = rule;
           } else {
+            rule.enabled = true;
             target.push(rule);
           }
           try { if (typeof saveRulesToStorage==='function') saveRulesToStorage(); } catch(_e){}
