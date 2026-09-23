@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Donguri Bag Enhancer
 // @namespace    https://donguri.5ch.io/
-// @version      14.6.9.2
+// @version      14.7.1.5
 // @description  5ちゃんねる「どんぐりシステム」の「アイテムバッグ」ページ機能改良スクリプト。
 // @author       Author: 福呼び草 / Assistant: ChatGPT（OpenAI）
 // @contributor  Suggested by: 'ID:YTtKPa4Z0'
@@ -9,6 +9,7 @@
 // @match        https://donguri.5ch.io/
 // @match        https://donguri.5ch.io
 // @match        https://donguri.5ch.io/bag
+// @match        https://donguri.5ch.io/bag?*
 // @match        https://donguri.5ch.io/chest
 // @match        https://donguri.5ch.io/battlechest
 // @match        https://donguri.5ch.io/itemwatch
@@ -16,6 +17,7 @@
 // @match        https://donguri.world/
 // @match        https://donguri.world
 // @match        https://donguri.world/bag
+// @match        https://donguri.world/bag?*
 // @match        https://donguri.world/chest
 // @match        https://donguri.world/battlechest
 // @match        https://donguri.world/itemwatch
@@ -33,7 +35,7 @@
   // ============================================================
   // スクリプト自身のバージョン（About 表示用）
   // ============================================================
-  const DBE_VERSION    = '14.6.9.2';
+  const DBE_VERSION    = '14.7.1.5';
 
   // ============================================================
   // 現在のどんぐりドメイン
@@ -2376,6 +2378,39 @@
         }
       /* === △ここまで△ 主要ウインドウ 共通デザイン（ダイアログ/ポップアップを除く） === */
 
+      /* 「全て分解」制御：内容に合わせて広がり、画面幅で折り返す */
+      #dbe-W-Recycle {
+        width: max-content;
+        max-width: 97svw;
+        min-width: 0;
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+      #dbe-W-Recycle * {
+        box-sizing: border-box;
+        min-width: 0;
+      }
+      #dbe-panel0-Recycle {
+        clear: both;
+      }
+      #dbe-W-Recycle label {
+        display: inline;
+        white-space: normal;
+      }
+      #dbe-W-Recycle input[type="number"] {
+        display: inline-block;
+        max-width: calc(100% - 8px);
+        vertical-align: middle;
+      }
+      #dbe-W-Recycle input[type="checkbox"] {
+        flex: 0 0 auto;
+      }
+      #dbe-W-Recycle button {
+        max-width: 100%;
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+
       `;
     document.head.appendChild(style);
     // ------------------------------------------------------------
@@ -3288,13 +3323,19 @@
       bagDomainBox
     );
 
+    // --- 「全て分解」制御：ウィンドウタイトル ---
+    const recycleWindowTitle = document.createElement('div');
+    recycleWindowTitle.textContent = '「全て分解」制御';
+    recycleWindowTitle.style.cssText = 'margin:4px 0 8px 0;padding:0;font-size:1.15em;font-weight:bold;';
+    secRecycle.appendChild(recycleWindowTitle);
+
     // --- 分解アラート設定UI（Recycle セクションへ） ---
     const secRecycl_Button    = document.createElement('div');
     secRecycl_Button.style.cssText = 'margin:0px;padding:8px;border:1px solid #666;border-radius:8px';
     secRecycl_Button.id = 'dbe-recycle-bulk-alert';  // ← アンカーとして識別できるよう ID を付与
-    // タイトル「全て分解」まきこみアラート
+    // タイトル「全て分解」巻き込みアラート
     const secRecycl_title  = document.createElement('div');
-    secRecycl_title.textContent = '「全て分解」まきこみアラート';
+    secRecycl_title.textContent = '「全て分解」巻き込みアラート';
     secRecycl_title.style.cssText = 'margin:4px 0;padding:0;font-size:1.1em;font-weight:bold';
     // グレードチェックボックス
     const secRecycl_alert_grade   = document.createElement('div');
@@ -3317,20 +3358,65 @@
       const lb = document.createElement('label'); lb.append(ck, document.createTextNode(' '+rk)); secRecycl_alert_rarity.appendChild(lb);
       ck.addEventListener('change', ()=>{ dbeStorage.setItem(ck.id, ck.checked); });
     }
+    secRecycl_Button.appendChild(secRecycl_title);
     secRecycl_Button.appendChild(secRecycl_alert_grade);
     secRecycl_Button.appendChild(secRecycl_alert_rarity);
-    secRecycl_Button.appendChild(secRecycl_title);
+    // MOD・Lvのしきい値（ON/OFFと設定値を保存、初期状態はON）
+    for (const [id, enabledId, label, min, max] of [
+      ['alert-mod-min', 'alert-mod-enabled', 'MOD（改造）が', 1, 999],
+      ['alert-lv-min', 'alert-lv-enabled', 'LV（SYNERGY）が', 2, 99]
+    ]){
+      const line = document.createElement('div');
+      line.style.cssText = 'margin:6px 12px 0 16px;';
+      const lb = document.createElement('label');
+      const ck = document.createElement('input');
+      ck.type = 'checkbox';
+      ck.id = enabledId;
+      ck.checked = dbeStorage.getItem(enabledId) !== 'false';
+      ck.addEventListener('change', ()=>{
+        dbeStorage.setItem(enabledId, String(ck.checked));
+      });
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.setAttribute('aria-label', label + '（しきい値）');
+      input.id = id;
+      input.min = String(min);
+      input.max = String(max);
+      input.step = '1';
+      input.inputMode = 'numeric';
+      input.required = true;
+      input.style.cssText = 'width:5em;margin:0 4px;padding:2px 4px;';
+      input.value = String(dbeBulkRecycleNormalizeThreshold(
+        dbeStorage.getItem(id), min, max
+      ));
+      const commit = ()=>{
+        const value = dbeBulkRecycleNormalizeThreshold(input.value, min, max);
+        input.value = String(value);
+        dbeStorage.setItem(id, String(value));
+      };
+      input.addEventListener('keydown', event=>{
+        if (!event.ctrlKey && !event.metaKey &&
+            ['e', 'E', '+', '-', '.'].includes(event.key)){
+          event.preventDefault();
+        }
+      });
+      input.addEventListener('change', commit);
+      input.addEventListener('blur', commit);
+      lb.append(ck, document.createTextNode(' ' + label));
+      line.append(lb, input, document.createTextNode('以上'));
+      secRecycl_Button.appendChild(line);
+    }
     secRecycle.appendChild(secRecycl_Button);
 
-    // --- 「全て分解する」ボタン（アラート枠の内側へ） ---
+    // --- 「全て分解する」ボタン（アラート枠の外側・直下へ） ---
     const allForm=document.createElement('form');
     allForm.action=`${DBE_ORIGIN}/recycleunlocked`; allForm.method='POST';
     const allBtn=document.createElement('button');
     allBtn.type='submit';
     allBtn.textContent='ロックされていないアイテムを全て分解する';
-    allBtn.style.cssText='fontSize:0.9em; padding:4px 8px; margin:12px 0 4px 0;';
+    allBtn.style.cssText='fontSize:0.9em; padding:4px 8px; margin:32px auto 16px auto;';
     allForm.appendChild(allBtn);
-    secRecycl_Button.appendChild(allForm);
+    secRecycle.appendChild(allForm);
 
     // 〓〓〓 ナビ（ウィンドウ用：タイトル独立＋縦並び＋幅7em） 〓〓〓
     // タイトル（flex から分離）
@@ -14056,7 +14142,7 @@
 
     const lb = document.createElement('label');
     lb.htmlFor = ck.id;
-    lb.textContent = 'ページの「全て分解する」ボタンを隠す';
+    lb.textContent = 'デフォルトの「全て分解する」ボタンを隠す';
     lb.style.cssText = 'font-size:0.95em;';
 
     box.append(ck, lb);
@@ -16265,6 +16351,21 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
     menu.querySelectorAll('input[id^="alert-grade-"], input[id^="alert-rarity-"]').forEach(el=>{
       el.checked = dbeStorage.getItem(el.id) === 'true';
     });
+    for (const [id, enabledId, min, max] of [
+      ['alert-mod-min', 'alert-mod-enabled', 1, 999],
+      ['alert-lv-min', 'alert-lv-enabled', 2, 99]
+    ]){
+      const ck = document.getElementById(enabledId);
+      if (ck){
+        ck.checked = dbeStorage.getItem(enabledId) !== 'false';
+      }
+      const input = document.getElementById(id);
+      if (input){
+        input.value = String(dbeBulkRecycleNormalizeThreshold(
+          dbeStorage.getItem(id), min, max
+        ));
+      }
+    }
   }
 
   // --- 基準文字サイズ適用 ---
@@ -16387,6 +16488,23 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
   }
 
   // --- 一括分解送信の保留＆確認機能 ---
+  function dbeBulkRecycleNormalizeThreshold(value, min, max){
+    const text = String(value ?? '').trim();
+    if (!/^\d+$/.test(text)) return min;
+    const number = Number(text);
+    return Math.min(max, Math.max(min, number));
+  }
+
+  function dbeBulkRecycleReadThreshold(id, min, max){
+    const input = document.getElementById(id);
+    const value = dbeBulkRecycleNormalizeThreshold(
+      input ? input.value : dbeStorage.getItem(id), min, max
+    );
+    if (input) input.value = String(value);
+    dbeStorage.setItem(id, String(value));
+    return value;
+  }
+
   function dbeBulkRecycleRowIsUnlocked(row, lockIdx, recycleIdx){
     const lockCell = (lockIdx >= 0) ? row.cells[lockIdx] : null;
     const recycleCell = (recycleIdx >= 0) ? row.cells[recycleIdx] : null;
@@ -16462,6 +16580,63 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
     }
   }
 
+  // 取得中から確認・送信完了まで、別フォームからの重複実行も防ぐ。
+  let dbeBulkRecycleBusy = false;
+
+  async function dbeBulkRecycleFetchLatestBag(){
+    const controller = new AbortController();
+    const timer = setTimeout(()=>controller.abort(), 20000);
+    try{
+      const response = await fetch(`${DBE_ORIGIN}/bag`, {
+        method: 'GET',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        redirect: 'error',
+        signal: controller.signal,
+        headers: { Accept: 'text/html' }
+      });
+      if (!response.ok){
+        throw new Error(`/bag の取得に失敗しました（HTTP ${response.status}）。`);
+      }
+      const html = await response.text();
+      // 別文書として解析するだけで、表示中のDOMには挿入しない。
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      for (const [id, nameLabel] of [
+        ['necklaceTable', 'ネックレス'],
+        ['weaponTable', '武器'],
+        ['armorTable', '防具']
+      ]){
+        const table = doc.getElementById(id);
+        if (!table?.tHead?.rows.length || table.tBodies.length !== 1){
+          throw new Error(`/bag のテーブル構造を確認できません（${id}）。`);
+        }
+        const headers = Array.from(table.tHead.rows[0].cells)
+          .map(th=>dbeBulkRecycleReadHeaderText(th));
+        const required = [nameLabel, '解', '分解'];
+        if (id !== 'necklaceTable') required.push('MOD', 'LV');
+        if (required.some(label=>headers.filter(text=>text === label).length !== 1)){
+          throw new Error(`/bag の必要な列を確認できません（${id}）。`);
+        }
+        for (const row of table.tBodies[0].rows){
+          if (row.cells.length !== headers.length){
+            throw new Error(`/bag の行構造を確認できません（${id}）。`);
+          }
+          if (id !== 'necklaceTable'){
+            for (const label of ['MOD', 'LV']){
+              const text = row.cells[headers.indexOf(label)].textContent.trim();
+              if (!/^\d+$/.test(text)){
+                throw new Error(`/bag の${label}値を確認できません（${id}）。`);
+              }
+            }
+          }
+        }
+      }
+      return doc;
+    }finally{
+      clearTimeout(timer);
+    }
+  }
+
   function initBulkRecycle(){
     const forms = document.querySelectorAll('form[action$="/recycleunlocked"]');
     forms.forEach(form=>{
@@ -16502,6 +16677,12 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
           }
         }catch(_){}
 
+        if (dbeBulkRecycleBusy){
+          if (form.dataset) delete form.dataset.dbeBulkRecycleSubmitting;
+          return;
+        }
+        dbeBulkRecycleBusy = true;
+        try{
         // ユーザーがチェックしたグレード／レアリティを収集
         const selectedGrades = Array.from(
           document.querySelectorAll(
@@ -16515,11 +16696,21 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
           )
         ).map(i=>i.value);
 
+        const modEnabled =
+          document.getElementById('alert-mod-enabled')?.checked ??
+          (dbeStorage.getItem('alert-mod-enabled') !== 'false');
+        const lvEnabled =
+          document.getElementById('alert-lv-enabled')?.checked ??
+          (dbeStorage.getItem('alert-lv-enabled') !== 'false');
+        const modMin = dbeBulkRecycleReadThreshold('alert-mod-min', 1, 999);
+        const lvMin = dbeBulkRecycleReadThreshold('alert-lv-min', 2, 99);
         const foundTypes = new Set();
 
+        // 設定は現在のUI、アイテム情報はサーバーから取得した最新文書を使う。
+        const latestBag = await dbeBulkRecycleFetchLatestBag();
         // テーブルを順に調べる
         for (const id of tableIds){
-          const table = document.getElementById(id);
+          const table = latestBag.getElementById(id);
           if (
             !table?.tHead ||
             !table.tHead.rows.length ||
@@ -16567,6 +16758,9 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
           const lockIdx = findHeaderIndex('解');
           const recycleIdx = findHeaderIndex('分解');
           const nameIdx = findHeaderIndex(nameLabel);
+          const isWeaponOrArmor = id === 'weaponTable' || id === 'armorTable';
+          const modIdx = isWeaponOrArmor ? findHeaderIndex('MOD') : -1;
+          const lvIdx = isWeaponOrArmor ? findHeaderIndex('LV') : -1;
 
           if (
             lockIdx < 0 ||
@@ -16605,6 +16799,20 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
                 row.cells[nameIdx]
               );
 
+            // MOD・LVは武器／防具の未ロック行だけを判定する。
+            if (isWeaponOrArmor){
+              const readNumber = index=>{
+                const text = String(row.cells[index]?.textContent || '').trim();
+                return /^\d+$/.test(text) ? Number(text) : NaN;
+              };
+              if (modEnabled && modIdx >= 0 && readNumber(modIdx) >= modMin){
+                foundTypes.add(`MODが${modMin}以上`);
+              }
+              if (lvEnabled && lvIdx >= 0 && readNumber(lvIdx) >= lvMin){
+                foundTypes.add(`LVが${lvMin}以上`);
+              }
+            }
+
             // レアリティ
             selectedRarities.forEach(rarity=>{
               if (meta.rarity === rarity){
@@ -16636,6 +16844,8 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
                 delete form.dataset.dbeBulkRecycleSubmitting;
               }
             }catch(_){}
+            // 分解は送信せず、キャッシュ回避用のクエリを付けて /bag を再読込。
+            location.replace(`${DBE_ORIGIN}/bag?_dbe_reload=${Date.now()}`);
             return;
           }
         }
@@ -16668,6 +16878,17 @@ const headerCellCountBeforeRemove = trh && trh.cells ? trh.cells.length : -1;
               delete form.dataset.dbeBulkRecycleSubmitting;
             }
           }catch(_){}
+        }
+        }catch(err){
+          console.error('[DBE] latest bag check failed:', err);
+          alert(
+            '最新の /bag 情報による安全確認に失敗したため、分解を中止しました。\n' +
+            'ページを再読込してから、もう一度お試しください。\n\n' +
+            (err?.name === 'AbortError' ? '取得がタイムアウトしました。' : String(err?.message || err))
+          );
+        }finally{
+          dbeBulkRecycleBusy = false;
+          if (form.dataset) delete form.dataset.dbeBulkRecycleSubmitting;
         }
       });
     });
