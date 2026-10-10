@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Donguri Bag Enhancer
 // @namespace    https://donguri.5ch.io/
-// @version      14.7.1.5
+// @version      14.8.1.0
 // @description  5ちゃんねる「どんぐりシステム」の「アイテムバッグ」ページ機能改良スクリプト。
 // @author       Author: 福呼び草 / Assistant: ChatGPT（OpenAI）
 // @contributor  Suggested by: 'ID:YTtKPa4Z0'
@@ -35,7 +35,7 @@
   // ============================================================
   // スクリプト自身のバージョン（About 表示用）
   // ============================================================
-  const DBE_VERSION    = '14.7.1.5';
+  const DBE_VERSION    = '14.8.1.0';
 
   // ============================================================
   // 現在のどんぐりドメイン
@@ -676,20 +676,26 @@
     ['雷獣',                       { kana:'ライジュウ',                       limited:true  }],
     ['白面金毛九尾狐',             { kana:'ハクメンキンモウキュウビノキツネ', limited:true  }],
     ['八咫烏',                     { kana:'ヤタガラス',                       limited:true  }],
+    ['アリエスのリボン槍',         { kana:'アリエスノリボンヤリ',             limited:true  }],
+    ['タウラスの鈴槌',             { kana:'タウラスノスズツチ',               limited:true  }],
+    ['ジェミニの双星杖',           { kana:'ジェミニノソウセイツエ',           limited:true  }],
+    ['キャンサーの泡杖',           { kana:'キャンサーノアワツエ',             limited:true  }],
+    ['レオの陽光剣',               { kana:'レオノヨウコウケン',               limited:true  }],
+    ['ヴァルゴの花杖',             { kana:'ヴァルゴノハナツエ',               limited:true  }],
+    ['リブラの天秤弓',             { kana:'リブラノテンビンキュウ',           limited:true  }],
+    ['スコーピオの星槍',           { kana:'スコーピオノセイソウ',             limited:true  }],
+    ['サジタリウスの彗星弓',       { kana:'サジタリウスノスイセイユミ',       limited:true  }],
+    ['カプリコーンの錨斧',         { kana:'カプリコーンノイカリオノ',         limited:true  }],
+    ['アクエリアスの星注ぎ杖',     { kana:'アクエリアスノホシソソギツエ',     limited:true  }],
+    ['パイシーズの双短剣',         { kana:'パイシーズノソウタンンケン',       limited:true  }],
+    ['アクエリアスの星注ぎ杖',     { kana:'アクエリアスノホシソソギツエ',     limited:true  }],
   // レジストリ（イベント開催中の限定武器）
-    ['アリエスのリボン槍',         { kana:'アリエスノリボンヤリ',             limited:true, eventActive:true  }],
-    ['タウラスの鈴槌',             { kana:'タウラスノスズツチ',               limited:true, eventActive:true  }],
-    ['ジェミニの双星杖',           { kana:'ジェミニノソウセイツエ',           limited:true, eventActive:true  }],
-    ['キャンサーの泡杖',           { kana:'キャンサーノアワツエ',             limited:true, eventActive:true  }],
-    ['レオの陽光剣',               { kana:'レオノヨウコウケン',               limited:true, eventActive:true  }],
-    ['ヴァルゴの花杖',             { kana:'ヴァルゴノハナツエ',               limited:true, eventActive:true  }],
-    ['リブラの天秤弓',             { kana:'リブラノテンビンキュウ',           limited:true, eventActive:true  }],
-    ['スコーピオの星槍',           { kana:'スコーピオノセイソウ',             limited:true, eventActive:true  }],
-    ['サジタリウスの彗星弓',       { kana:'サジタリウスノスイセイユミ',       limited:true, eventActive:true  }],
-    ['カプリコーンの錨斧',         { kana:'カプリコーンノイカリオノ',         limited:true, eventActive:true  }],
-    ['アクエリアスの星注ぎ杖',     { kana:'アクエリアスノホシソソギツエ',     limited:true, eventActive:true  }],
-    ['パイシーズの双短剣',         { kana:'パイシーズノソウタンンケン',       limited:true, eventActive:true  }],
-    ['アクエリアスの星注ぎ杖',     { kana:'アクエリアスノホシソソギツエ',     limited:true, eventActive:true  }],
+    ['いたずらりんご飴',           { kana:'イタズラリンゴアメ',               limited:true, eventActive:true  }],
+    ['踊るひとだま',               { kana:'オドルヒトダマ',                   limited:true, eventActive:true  }],
+    ['おばけキャンドル',           { kana:'オバケキャンドル',                 limited:true, eventActive:true  }],
+    ['おやすみ三日月',             { kana:'オヤスミミカヅキ',                 limited:true, eventActive:true  }],
+    ['ぐつぐつ魔法鍋',             { kana:'グツグツマホウナベ',               limited:true, eventActive:true  }],
+    ['ひみつの魔法書',            { kana:'ヒミツノマホウショ',                limited:true, eventActive:true  }],
   ]);
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -807,19 +813,25 @@
     ['氷晶殻',                     { kana:'ヒョウショウカク',                 limited:true  }],
     ['光輝殻',                     { kana:'コウキカク',                       limited:true  }],
     ['虚牢殻',                     { kana:'キョロウカク',                     limited:true  }],
+    ['月ねずみのポケット胴衣',     { kana:'ツキネズミノポケットドウイ',       limited:true  }],
+    ['もち牛の前掛け鎧',           { kana:'モチウシノマエカケヨロイ',         limited:true  }],
+    ['鈴虎の羽織',                 { kana:'スズトラノハオリ',                 limited:true  }],
+    ['月うさぎのケープ',           { kana:'ツキウサギノケープ',               limited:true  }],
+    ['ちび龍の雲衣',               { kana:'チビリュウノクモギヌ',             limited:true  }],
+    ['リボン蛇の着物',             { kana:'リボンヘビノキモノ',               limited:true  }],
+    ['星仔馬の乗衣',               { kana:'ホシコウマノジョウイ',             limited:true  }],
+    ['ふわ山羊のカーディガン',     { kana:'フワヤギノカーディガン',           limited:true  }],
+    ['桃猿のパーカー',             { kana:'モモザルノパーカー',               limited:true  }],
+    ['朝日ひよこの法被',           { kana:'アサヒヒヨコノハッピ',             limited:true  }],
+    ['忠犬こいぬの守衣',           { kana:'チュウケンコイヌノモリゴロモ',     limited:true  }],
+    ['お団子こぶたのポンチョ',     { kana:'オダンゴコブタノポンチョ',         limited:true  }],
   // レジストリ（イベント開催中の限定防具）
-    ['月ねずみのポケット胴衣',     { kana:'ツキネズミノポケットドウイ',       limited:true, eventActive:true  }],
-    ['もち牛の前掛け鎧',           { kana:'モチウシノマエカケヨロイ',         limited:true, eventActive:true  }],
-    ['鈴虎の羽織',                 { kana:'スズトラノハオリ',                 limited:true, eventActive:true  }],
-    ['月うさぎのケープ',           { kana:'ツキウサギノケープ',               limited:true, eventActive:true  }],
-    ['ちび龍の雲衣',               { kana:'チビリュウノクモギヌ',             limited:true, eventActive:true  }],
-    ['リボン蛇の着物',             { kana:'リボンヘビノキモノ',               limited:true, eventActive:true  }],
-    ['星仔馬の乗衣',               { kana:'ホシコウマノジョウイ',             limited:true, eventActive:true  }],
-    ['ふわ山羊のカーディガン',     { kana:'フワヤギノカーディガン',           limited:true, eventActive:true  }],
-    ['桃猿のパーカー',             { kana:'モモザルノパーカー',               limited:true, eventActive:true  }],
-    ['朝日ひよこの法被',           { kana:'アサヒヒヨコノハッピ',             limited:true, eventActive:true  }],
-    ['忠犬こいぬの守衣',           { kana:'チュウケンコイヌノモリゴロモ',     limited:true, eventActive:true  }],
-    ['お団子こぶたのポンチョ',     { kana:'オダンゴコブタノポンチョ',         limited:true, eventActive:true  }],
+    ['おばけのケープ',             { kana:'オバケノケープ',                   limited:true, eventActive:true  }],
+    ['かかしの衣装',               { kana:'カカシノイショウ',                 limited:true, eventActive:true  }],
+    ['キャンディコーンの着ぐるみ', { kana:'キャンディコーンノキグルミ',       limited:true, eventActive:true  }],
+    ['ゾンビの着ぐるみ',           { kana:'ゾンビノキグルミ',                 limited:true, eventActive:true  }],
+    ['魔女のドレス',               { kana:'マジョノドレス',                   limited:true, eventActive:true  }],
+    ['魔法使いのローブ',           { kana:'マホウツカイノローブ',             limited:true, eventActive:true  }],
   ]);
 
   // ============================================================
@@ -5742,7 +5754,9 @@
         /Not\s*enough\s*battle\s*tokens/i, // Left Not enough battle tokens
         /Not\s*enough\s*iron\s*keys/i,     // Left Not enough iron keys.
         /どんぐりが見つかりませんでした。/i,
-        /\b404\b/i, /\b403\b/i, /\b300\b/i,
+        // 天井進捗などに含まれる数値をHTTPエラーと誤認しない。
+        /(?:^|\n)\s*(?:HTTP\s+|Error\s*[:：]?\s*)?(?:404|403|300)\s*(?:$|\n)/i,
+        /\b300\s+Multiple\s+Choices\b/i,
         /Not\s*Found/i, /Forbidden/i, /Internal\s*Server\s*Error/i
       ];
       const hit = patterns.some(re => re.test(text));
@@ -8631,33 +8645,34 @@
       return (String(type || '') === 'large' || String(type || '') === 'battle_large') ? 'B70' : 'A65';
     }
 
+    function dbeChestOpenFormMatches(form, type){
+      try{
+        if (!form || !['normal', 'large', 'battle', 'battle_normal', 'battle_large'].includes(type)) return false;
+        const action = new URL(form.getAttribute('action') || '', DBE_ORIGIN);
+        const path = dbeChestIsBattleType(type) ? '/openbattlechest' : '/open';
+        if (action.origin !== DBE_ORIGIN || action.pathname !== path || action.search || action.hash) return false;
+        if (String(form.getAttribute('method') || '').toLowerCase() !== 'post') return false;
+        const sizes = new FormData(form).getAll('chestsize');
+        return sizes.length === 1 && sizes[0] === dbeChestWantedSizeForType(type);
+      }catch(_){
+        return false;
+      }
+    }
+
     function dbeFindChestOpenElementInDoc(doc, type){
       try{
-        if (!doc || !doc.querySelector) return null;
-        const want = dbeChestWantedSizeForType(type);
-        const actionPart = dbeChestIsBattleType(type) ? 'openbattlechest' : 'open';
-
-        // 公式HTMLは通常宝箱: action="/open"、バトル宝箱: action="/openbattlechest"、
-        // どちらも hidden chestsize=A65/B70 でサイズを区別している。
-        const hidden = doc.querySelector(
-          `form[action*="${actionPart}"] input[name="chestsize"][value="${want}"]`
-        );
-        const form = hidden ? hidden.closest('form') : null;
-        const submit = form ? form.querySelector('input[type="submit"], button[type="submit"], button:not([type])') : null;
-        if (submit) return submit;
-
-        // フォールバック：ラベル表記から拾う。
-        const normalize = (s)=>String(s || '').replace(/\s+/g, '').trim();
-        const matcher = (el)=>{
-          const v = normalize(el.value || el.textContent || '');
-          if (dbeChestIsBattleType(type)){
-            if (want === 'B70') return /大型サイズのバトル宝箱を開く/.test(v);
-            return /標準サイズのバトル宝箱を開く/.test(v);
-          }
-          if (want === 'B70') return /大型サイズの宝箱を開ける/.test(v);
-          return /標準サイズの宝箱を開ける/.test(v);
-        };
-        return Array.from(doc.querySelectorAll('input[type="submit"], button[type="submit"], button:not([type])')).find(matcher) || null;
+        if (!doc || !doc.querySelectorAll) return null;
+        // ラベルや配置ではなく、送信先・POST・chestsizeの組み合わせで特定する。
+        for (const form of doc.querySelectorAll('form[action]')){
+          if (!dbeChestOpenFormMatches(form, type)) continue;
+          const submit = Array.from(form.querySelectorAll(
+            'input[type="submit"], button[type="submit"], button:not([type])'
+          )).find(el => el.form === form && !el.matches(':disabled') &&
+            !el.hasAttribute('formaction') && !el.hasAttribute('formmethod'));
+          if (submit) return submit;
+        }
+        // 指定サイズがなければ、別サイズで代用せず停止する。
+        return null;
       }catch(_){
         return null;
       }
@@ -8844,17 +8859,11 @@
             chestDiag('ChestCount(' + (src || 'open-submit') + '): +1', url || '');
           }catch(_){}
         };
-        const form = (typeof openEl.closest === 'function') ? openEl.closest('form') : null;
-        if (!form){
-          // form が取れない異常系だけ従来 click にフォールバック
-          try{
-            // 開封送信として実行できた場合は、進行モーダルの分子を +1 する。
-            // 通常ルートでは fetch 送信直前に加算するが、form が取れないフォールバックでは
-            // click() 成功をもって「開封1回」として扱う。
-            dbeCountChestOpenSubmit('open-click-fallback', locLabel || '');
-            openEl.click();
-            return true;
-          }catch(_){}
+        const form = openEl.form || null;
+        if (!dbeChestOpenFormMatches(form, DBE_CHEST.type) ||
+            openEl.matches(':disabled') ||
+            openEl.hasAttribute('formaction') || openEl.hasAttribute('formmethod')){
+          console.warn('[DBE] chest open form does not match the selected type:', DBE_CHEST.type, locLabel || '');
           return false;
         }
 
@@ -8963,29 +8972,8 @@
         const isChest = /\/(?:battlechest|chest)(?:$|[?#])/.test(loc);
         // ステージごとの処理
         if (DBE_CHEST.stage === 'load_chest'){
-          // 背景ページの送信ボタンをクリック
-          // ページ実体は「バトル宝箱を開く  」等となっており、末尾スペースや表記ゆれを吸収する
-          const type = chestType;
-          const val = (s)=> (s||'').replace(/\s+/g,'').trim();
-          // 種別ごとの候補（正規表現／文字列の両方で吸収）
-          const matcher = (el)=>{
-            const v = val(el.value);
-            if (type==='battle')        return /標準サイズのバトル宝箱を開く/.test(v); // 互換：旧battleは標準扱い
-            if (type==='battle_normal') return /標準サイズのバトル宝箱を開く/.test(v);
-            if (type==='battle_large')  return /大型サイズのバトル宝箱を開く/.test(v);
-            if (type==='normal')        return /標準サイズの宝箱を開ける/.test(v);
-            /* large */                 return /大型サイズの宝箱を開ける/.test(v);
-          };
-          // まず input[type=submit] を走査、見つからなければ form[action*="battlechest"] 直下の submit を拾う
-          let btn = Array.from(doc.querySelectorAll('input[type="submit"]')).find(matcher);
-          const isBattleType = (t)=> (t==='battle' || t==='battle_normal' || t==='battle_large');
-          if (!btn && isBattleType(type)){
-            // フォールバック：hidden chestsize から form を特定して submit を拾う（標準=A65 / 大型=B70）
-            const want = (type==='battle_large') ? 'B70' : 'A65';
-            const hidden = doc.querySelector(`form[action*="openbattlechest"] input[name="chestsize"][value="${want}"], form[action*="battlechest"] input[name="chestsize"][value="${want}"]`);
-            const form = hidden ? hidden.closest('form') : null;
-            btn = form ? (form.querySelector('input[type="submit"], button[type="submit"]')) : null;
-          }
+          // fetch経路と同じ判定で、選択した種類・サイズのフォームだけを使う。
+          const btn = dbeFindChestOpenElementInDoc(doc, chestType);
           if (!btn){
             // 送信ボタンが見つからない場合のみサーバーエラー推定を実施
             const errText = !isChest ? normalizeChestServerErrorText(doc, loc, chestType) : null;
@@ -9079,30 +9067,7 @@
     function dbePatchBattleOpenPostDefine(){
       const orig = window.onBgFrameLoad; // 直前に定義された“本体”を確実に捕まえる
       function findOpenBtn(doc, type){
-        const root = doc || document;
-        const isBattleType = (t)=> (t==='battle' || t==='battle_normal' || t==='battle_large');
-        if (isBattleType(type)){
-          // バトル宝箱：標準=A65 / 大型=B70 を hidden chestsize から確実に拾う
-          const want = (type==='battle_large') ? 'B70' : 'A65';
-          const hidden = root.querySelector(`form[action*="openbattlechest"] input[name="chestsize"][value="${want}"], form[action*="battlechest"] input[name="chestsize"][value="${want}"]`);
-          const form = hidden ? hidden.closest('form') : null;
-          const btn = form ? (form.querySelector('input[type="submit"], button[type="submit"]')) : null;
-          if (btn) return btn;
-          // フォールバック（最悪でもsubmitを拾う）
-          return root.querySelector('form[action*="openbattlechest"] input[type="submit"], form[action*="battlechest"] input[type="submit"]');
-        }
-        // 通常宝箱（従来どおり）
-        const queries = [
-          'form[action*="openchest"] button[type="submit"]',
-          'form[action*="openchest"] input[type="submit"]',
-          'form[action*="chest"] button[type="submit"]',
-          'form[action*="chest"] input[type="submit"]'
-        ];
-        for (const sel of queries){
-          const el = root.querySelector(sel);
-          if (el) return el;
-        }
-        return null;
+        return dbeFindChestOpenElementInDoc(doc || document, type);
       }
       window.onBgFrameLoad = function(ev){
         try{
